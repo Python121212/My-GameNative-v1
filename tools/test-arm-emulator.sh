@@ -7,8 +7,9 @@ capture_failure() {
     status=$?
     if (( status != 0 )); then
         adb logcat -d -v brief -t 5000 > emulator-results/failure-log.txt 2>&1 || true
-        details=$(grep -iE 'app.gamenative|AndroidRuntime|FATAL|Exception|CrashHandler' emulator-results/failure-log.txt | tail -n 60 | sed -e 's/%/%25/g' | awk '{printf "%s%%0A", $0}' || true)
-        echo "::error::エミュレーターの失敗ログ%0A$details"
+        adb logcat -b crash -d -v brief > emulator-results/crash-log.txt 2>&1 || true
+        details=$(tail -n 60 emulator-results/crash-log.txt | sed -e 's/%/%25/g' | awk '{printf "%s%%0A", $0}' || true)
+        echo "::error::アプリのクラッシュログ%0A$details"
     fi
 }
 trap capture_failure EXIT
@@ -58,7 +59,12 @@ if ! grep -q 'Status: ok' emulator-results/launch.txt; then
     echo 'アプリの起動に失敗しました。' >&2
     exit 1
 fi
-initial_pid=$(adb shell pidof app.gamenative 2>/dev/null | tr -d '\r' || true)
+initial_pid=''
+for _ in {1..30}; do
+    initial_pid=$(adb shell pidof app.gamenative 2>/dev/null | tr -d '\r' || true)
+    [[ -n "$initial_pid" ]] && break
+    sleep 1
+done
 if [[ -z "$initial_pid" ]]; then
     echo 'アプリのプロセスが起動していません。' >&2
     exit 1
