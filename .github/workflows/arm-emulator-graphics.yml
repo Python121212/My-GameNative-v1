@@ -12,8 +12,8 @@ permissions:
 
 jobs:
   emulator:
-    runs-on: ubuntu-latest
-    timeout-minutes: 60
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-java@v5
@@ -35,11 +35,19 @@ jobs:
             --no-daemon --max-workers=2 \
             -Dorg.gradle.jvmargs='-Xmx3g -Dfile.encoding=UTF-8' \
             -Pkotlin.daemon.jvmargs=-Xmx5g
-      - name: KVM の有効化
+      - name: KVM の確認
+        id: kvm
         run: |
-          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
-          sudo udevadm trigger --name-match=kvm
-          test -r /dev/kvm && test -w /dev/kvm
+          if [ -e /dev/kvm ]; then
+            sudo chmod a+rw /dev/kvm
+          fi
+          if [ -r /dev/kvm ] && [ -w /dev/kvm ]; then
+            echo 'disable=false' >> "$GITHUB_OUTPUT"
+            echo 'KVM を使用します。'
+          else
+            echo 'disable=true' >> "$GITHUB_OUTPUT"
+            echo '::warning::KVM が利用できないため、低速なソフトウェア CPU エミュレーションを使用します。'
+          fi
       - name: エミュレーターで ARM64 と描画を確認
         uses: reactivecircus/android-emulator-runner@v2
         with:
@@ -49,7 +57,8 @@ jobs:
           profile: pixel_5
           ram-size: 4096M
           disk-size: 8G
-          emulator-boot-timeout: 600
+          emulator-boot-timeout: 1800
+          disable-linux-hw-accel: ${{ steps.kvm.outputs.disable }}
           emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -camera-back none -camera-front none
           script: bash tools/test-arm-emulator.sh
       - name: テスト結果の保存
