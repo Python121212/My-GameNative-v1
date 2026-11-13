@@ -34,6 +34,8 @@ jobs:
           yes | "$SDKMANAGER" --licenses > /dev/null || true
           "$SDKMANAGER" 'platforms;android-36' 'build-tools;35.0.0' 'ndk;27.3.13750724'
       - uses: gradle/actions/setup-gradle@v4
+      - name: Prepare local properties
+        run: touch local.properties
       - name: Build debug APK
         env:
           VARIANT: ${{ inputs.variant || 'modern' }}
