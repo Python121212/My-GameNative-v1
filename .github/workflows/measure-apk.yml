@@ -9,14 +9,11 @@ on:
 permissions:
   contents: write
 
-env:
-  GRADLE_OPTS: -Dorg.gradle.jvmargs="-Xmx3g -Dfile.encoding=UTF-8"
-
 jobs:
   measure:
     if: ${{ github.event_name == 'workflow_dispatch' || startsWith(github.event.head_commit.message, 'Measure APK build') }}
     runs-on: ubuntu-latest
-    timeout-minutes: 90
+    timeout-minutes: 150
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-java@v5
@@ -40,7 +37,7 @@ jobs:
           for n in 1 2 3 4; do
             start=$(date +%s)
             set +e
-            ./gradlew clean :app:assembleModernDebug --no-daemon --max-workers=2 2>&1 | tee "build-${n}.log"
+            ./gradlew clean :app:assembleModernDebug --no-daemon --max-workers=2 -Dorg.gradle.jvmargs="-Xmx3g -Dfile.encoding=UTF-8" -Pkotlin.daemon.jvmargs=-Xmx5g 2>&1 | tee "build-${n}.log"
             status=${PIPESTATUS[0]}
             set -e
             elapsed=$(( $(date +%s) - start ))
@@ -59,6 +56,14 @@ jobs:
             cat build-times.csv
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
+      - name: 途中までの計測結果を保存
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: apk-build-times
+          path: build-times.csv
+          if-no-files-found: ignore
+          retention-days: 14
       - name: 計測結果と APK を保存
         uses: actions/upload-artifact@v4
         with:
