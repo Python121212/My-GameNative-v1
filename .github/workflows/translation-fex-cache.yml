@@ -1,0 +1,43 @@
+name: Linux FEX キャッシュの検査
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'tools/translation-benchmark/test-fex-cache.sh'
+      - 'tools/translation-benchmark/hello-x86_64.s'
+      - '.github/workflows/translation-fex-cache.yml'
+permissions:
+  contents: read
+jobs:
+  cache-test:
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+      - name: Linux 版 FEX を準備
+        run: |
+          test "$(uname -m)" = aarch64
+          sudo apt-get update
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y software-properties-common binutils-x86-64-linux-gnu strace
+          sudo add-apt-repository -y ppa:fex-emu/fex
+          sudo apt-get update
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y fex-emu-armv8.0
+      - name: 記録とキャッシュ読み込みを検査
+        run: |
+          set +e
+          bash tools/translation-benchmark/test-fex-cache.sh "$RUNNER_TEMP/fex-cache-test" 2>&1 | tee "$RUNNER_TEMP/fex-cache-test-log.txt"
+          status=${PIPESTATUS[0]}
+          set -e
+          if (( status != 0 )); then
+            details=$(tail -n 50 "$RUNNER_TEMP/fex-cache-test-log.txt" | sed 's/%/%25/g' | awk '{printf "%s%%0A", $0}')
+            echo "::error::Linux FEX キャッシュ検査失敗%0A$details"
+            exit "$status"
+          fi
+      - uses: actions/upload-artifact@v4
+        if: ${{ always() }}
+        with:
+          name: linux-fex-cache-check
+          path: |
+            ${{ runner.temp }}/fex-cache-test/*.txt
+            ${{ runner.temp }}/fex-cache-test-log.txt
+          if-no-files-found: warn
