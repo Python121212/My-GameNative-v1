@@ -7,6 +7,10 @@ permissions:
   contents: read
 
 jobs:
+  emulator:
+    # 既存のエミュレーターテストを同じコミットで実行する。
+    uses: ./.github/workflows/arm-emulator-graphics.yml
+
   analyze:
     # ライセンスを確認したうえで、所有者が公式の malioc と glslangValidator を
     # インストールした信頼できる専用ランナーを用意する。GitHub ホストには含まれない。

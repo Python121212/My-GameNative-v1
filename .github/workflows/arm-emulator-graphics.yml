@@ -1,6 +1,7 @@
 name: ARM 変換エミュレーター描画確認
 
 on:
+  workflow_call:
   workflow_dispatch:
   push:
     paths:
