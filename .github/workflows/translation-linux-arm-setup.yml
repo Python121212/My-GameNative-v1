@@ -82,7 +82,9 @@ jobs:
             file "$wine_bin"
             FEX_ROOTFS="$RUNNER_TEMP/wine-rootfs" timeout 120 FEX "$wine_bin" --version
             echo "Box64 で Wine のバージョンを取得します"
-            timeout 120 proot -R "$RUNNER_TEMP/wine-rootfs" -q "$RUNNER_TEMP/box64-cache/box64" /usr/bin/wine --version
+            export BOX64_LD_LIBRARY_PATH="$RUNNER_TEMP/wine-rootfs/lib/x86_64-linux-gnu:$RUNNER_TEMP/wine-rootfs/usr/lib/x86_64-linux-gnu:$RUNNER_TEMP/wine-rootfs/opt/wine-stable/lib/wine/x86_64-unix"
+            export BOX64_PATH="$RUNNER_TEMP/wine-rootfs/opt/wine-stable/bin"
+            timeout 120 "$RUNNER_TEMP/box64-cache/box64" "$wine_bin" --version
           ' 2>&1 | tee "$RUNNER_TEMP/results/wine-setup.txt"
           status=${PIPESTATUS[0]}
           set -e
