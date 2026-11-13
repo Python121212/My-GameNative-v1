@@ -1,0 +1,117 @@
+name: クラウド実機の描画テスト
+
+on:
+  workflow_dispatch:
+    inputs:
+      operation:
+        description: 端末一覧の確認、または描画テストの実行
+        type: choice
+        options:
+          - list
+          - test
+        default: list
+        required: true
+      model:
+        description: テスト対象のモデル ID（一覧で確認。test の場合は必須）
+        type: string
+        required: false
+      android_version:
+        description: 対応する Android バージョン ID（一覧で確認。test の場合は必須）
+        type: string
+        required: false
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  graphics-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: 設定の確認
+        env:
+          OPERATION: ${{ inputs.operation }}
+          MODEL: ${{ inputs.model }}
+          ANDROID_VERSION: ${{ inputs.android_version }}
+          PROJECT: ${{ vars.GCP_PROJECT_ID }}
+          PROVIDER: ${{ vars.GCP_WIF_PROVIDER }}
+          SERVICE_ACCOUNT: ${{ vars.GCP_SERVICE_ACCOUNT }}
+        run: |
+          set -euo pipefail
+          if [[ -z "$PROJECT" || -z "$PROVIDER" || -z "$SERVICE_ACCOUNT" ]]; then
+            echo '::error::GCP_PROJECT_ID、GCP_WIF_PROVIDER、GCP_SERVICE_ACCOUNT のリポジトリ変数を設定してください。'
+            exit 1
+          fi
+          if [[ "$OPERATION" == test ]] && { [[ -z "$MODEL" ]] || [[ -z "$ANDROID_VERSION" ]]; }; then
+            echo '::error::テスト実行には端末モデルと Android バージョンの ID が必要です。'
+            exit 1
+          fi
+          if { [[ -n "$MODEL" && ! "$MODEL" =~ ^[A-Za-z0-9_.-]+$ ]] || [[ -n "$ANDROID_VERSION" && ! "$ANDROID_VERSION" =~ ^[A-Za-z0-9_.-]+$ ]]; }; then
+            echo '::error::端末モデルとバージョンには英数字、ピリオド、ハイフン、アンダースコアのみ使用できます。'
+            exit 1
+          fi
+      - uses: actions/checkout@v6
+      - name: Java の準備
+        if: ${{ inputs.operation == 'test' }}
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Android SDK の準備
+        if: ${{ inputs.operation == 'test' }}
+        run: |
+          SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          yes | "$SDKMANAGER" --licenses > /dev/null || true
+          "$SDKMANAGER" 'platforms;android-36' 'build-tools;35.0.0' 'ndk;27.3.13750724'
+      - uses: gradle/actions/setup-gradle@v4
+        if: ${{ inputs.operation == 'test' }}
+      - name: アプリとテスト APK をビルド
+        if: ${{ inputs.operation == 'test' }}
+        run: |
+          touch local.properties
+          ./gradlew :app:assembleModernDebug :app:assembleModernDebugAndroidTest \
+            --no-daemon --max-workers=2 \
+            -Dorg.gradle.jvmargs='-Xmx3g -Dfile.encoding=UTF-8' \
+            -Pkotlin.daemon.jvmargs=-Xmx5g
+      - name: Google Cloud 認証
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_SERVICE_ACCOUNT }}
+          project_id: ${{ vars.GCP_PROJECT_ID }}
+      - name: Google Cloud CLI の準備
+        uses: google-github-actions/setup-gcloud@v2
+      - name: 利用可能な端末の一覧
+        if: ${{ inputs.operation == 'list' }}
+        env:
+          MODEL: ${{ inputs.model }}
+        run: |
+          gcloud firebase test android models list
+          if [[ -n "$MODEL" ]]; then
+            gcloud firebase test android models describe "$MODEL"
+          fi
+          echo 'Pixel 9a が利用可能か確認し、モデル ID を指定して再度一覧を実行すると詳細を確認できます。'
+      - name: クラウド端末で描画テスト
+        if: ${{ inputs.operation == 'test' }}
+        env:
+          MODEL: ${{ inputs.model }}
+          ANDROID_VERSION: ${{ inputs.android_version }}
+          PROJECT: ${{ vars.GCP_PROJECT_ID }}
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          apps=(app/build/outputs/apk/modern/debug/*.apk)
+          tests=(app/build/outputs/apk/androidTest/modern/debug/*.apk)
+          if (( ${#apps[@]} != 1 || ${#tests[@]} != 1 )); then
+            echo '::error::アプリまたはテスト APK を一つに特定できません。'
+            exit 1
+          fi
+          gcloud firebase test android run \
+            --project "$PROJECT" \
+            --type instrumentation \
+            --app "${apps[0]}" \
+            --test "${tests[0]}" \
+            --test-targets 'class app.gamenative.GraphicsDeviceSmokeTest' \
+            --device "model=$MODEL,version=$ANDROID_VERSION,locale=ja,orientation=portrait" \
+            --timeout 10m
