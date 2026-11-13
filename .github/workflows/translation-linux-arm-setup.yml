@@ -55,7 +55,7 @@ jobs:
         run: |
           set +e
           bash -ec '
-            image=scottyhardy/docker-wine:latest
+            image=scottyhardy/docker-wine@sha256:c61cfc490aaee10b96782b88733a0f3d0e7b425d93b4e96617d9ab9a2b6bcfd2
             docker pull --platform linux/amd64 "$image"
             docker image inspect "$image" --format "{{json .RepoDigests}}" > "$RUNNER_TEMP/results/wine-image.txt"
             container=$(docker create --platform linux/amd64 "$image")
@@ -64,7 +64,9 @@ jobs:
             docker rm "$container"
             bash tools/translation-benchmark/prepare-windows-benchmark.sh "$RUNNER_TEMP/benchmark"
             echo "FEX で Wine のバージョンを取得します"
-            timeout 120 proot -R "$RUNNER_TEMP/wine-rootfs" -q "$(command -v FEX)" /usr/bin/wine --version
+            wine_bin="$RUNNER_TEMP/wine-rootfs/opt/wine-stable/bin/wine64"
+            ls -l "$wine_bin"
+            FEX_ROOTFS="$RUNNER_TEMP/wine-rootfs" timeout 120 FEX "$wine_bin" --version
             echo "Box64 で Wine のバージョンを取得します"
             timeout 120 proot -R "$RUNNER_TEMP/wine-rootfs" -q "$RUNNER_TEMP/box64-build/box64" /usr/bin/wine --version
           ' 2>&1 | tee "$RUNNER_TEMP/results/wine-setup.txt"
