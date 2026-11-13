@@ -24,6 +24,7 @@ public abstract class GPUHelper {
 
     static {
         System.loadLibrary("winlator_11");
+        System.loadLibrary("gpu_probe");
     }
 
     private static final Executor io =
@@ -36,7 +37,11 @@ public abstract class GPUHelper {
     // Note: Removed @CriticalNative to allow proper JNI error handling and logging
     // in the native implementation. Performance is not impacted since this is
     // called asynchronously on a background thread.
-    public static native int vkGetApiVersion();
+    private static native int vkGetApiVersionChecked();
+
+    public static int vkGetApiVersion() {
+        return vkGetApiVersionChecked();
+    }
 
     public static int vkGetApiVersionSafe() {
         try {
@@ -47,7 +52,11 @@ public abstract class GPUHelper {
         }
     }
 
-    public static native String[] vkGetDeviceExtensions();
+    private static native String[] vkGetDeviceExtensionsChecked();
+
+    public static String[] vkGetDeviceExtensions() {
+        return vkGetDeviceExtensionsChecked();
+    }
 
     public static int vkVersionPatch(){
         try {

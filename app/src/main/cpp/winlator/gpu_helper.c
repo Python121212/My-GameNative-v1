@@ -57,7 +57,7 @@ static uint32_t query_instance_api_version(void *vulkan_handle, PFN_vkGetInstanc
 }
 
 JNIEXPORT jobjectArray JNICALL
-Java_com_winlator_core_GPUHelper_vkGetDeviceExtensions(JNIEnv *env, jclass clazz)
+Java_com_winlator_core_GPUHelper_vkGetDeviceExtensionsChecked(JNIEnv *env, jclass clazz)
 {
     (void)clazz;
 
@@ -164,6 +164,11 @@ Java_com_winlator_core_GPUHelper_vkGetDeviceExtensions(JNIEnv *env, jclass clazz
         goto fail;
     }
 
+    if (pdCount == 0 || pds[0] == VK_NULL_HANDLE) {
+        LOGE("Physical device enumeration returned no valid device");
+        goto fail;
+    }
+
     // ============================================================
     // Step 6: Select the best physical device
     // On Android, typically there's only one GPU, but we try to
@@ -173,6 +178,7 @@ Java_com_winlator_core_GPUHelper_vkGetDeviceExtensions(JNIEnv *env, jclass clazz
     if (getPhysicalDeviceProperties && pdCount > 1) {
         VkPhysicalDeviceProperties props;
         for (uint32_t i = 0; i < pdCount; ++i) {
+            if (pds[i] == VK_NULL_HANDLE) continue;
             getPhysicalDeviceProperties(pds[i], &props);
             LOGI("Physical device %u: %s (type: %d, API: %u.%u.%u)", i, props.deviceName,
                  props.deviceType,
@@ -299,7 +305,7 @@ fail:
  * This is used to determine which Vulkan features the device supports.
  */
 JNIEXPORT jint JNICALL
-Java_com_winlator_core_GPUHelper_vkGetApiVersion(JNIEnv *env, jclass clazz)
+Java_com_winlator_core_GPUHelper_vkGetApiVersionChecked(JNIEnv *env, jclass clazz)
 {
     (void)env;
     (void)clazz;
@@ -375,6 +381,11 @@ Java_com_winlator_core_GPUHelper_vkGetApiVersion(JNIEnv *env, jclass clazz)
 
     res = enumeratePhysicalDevices(instance, &pdCount, pds);
     if (res != VK_SUCCESS && res != VK_INCOMPLETE) {
+        goto cleanup;
+    }
+
+    if (pdCount == 0 || pds[0] == VK_NULL_HANDLE) {
+        LOGE("vkGetApiVersion: Physical device enumeration returned no valid device");
         goto cleanup;
     }
 

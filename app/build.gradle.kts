@@ -41,6 +41,13 @@ android {
     namespace = "app.gamenative"
     compileSdk = 36
 
+    externalNativeBuild {
+        cmake {
+            path = file("src/main/cpp/gpu-probe/CMakeLists.txt")
+            version = "3.22.1"
+        }
+    }
+
     // https://developer.android.com/ndk/downloads
     ndkVersion = "27.3.13750724"
 
