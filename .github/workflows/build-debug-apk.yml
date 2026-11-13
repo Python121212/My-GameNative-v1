@@ -39,10 +39,18 @@ jobs:
           VARIANT: ${{ inputs.variant || 'modern' }}
         run: |
           if [ "$VARIANT" = modern ]; then
-            ./gradlew :app:assembleModernDebug --no-daemon
+            task=:app:assembleModernDebug
           else
-            ./gradlew :app:assembleLegacyDebug --no-daemon
+            task=:app:assembleLegacyDebug
           fi
+          set +e
+          ./gradlew "$task" --no-daemon 2>&1 | tee gradle-build.log
+          status=${PIPESTATUS[0]}
+          set -e
+          if [ "$status" -ne 0 ]; then
+            tail -n 50 gradle-build.log | while IFS= read -r line; do echo "::error::$line"; done
+          fi
+          exit "$status"
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
