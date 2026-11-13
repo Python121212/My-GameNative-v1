@@ -20,10 +20,15 @@ jobs:
           sudo DEBIAN_FRONTEND=noninteractive apt-get install -y software-properties-common cmake ninja-build binutils-x86-64-linux-gnu
       - name: FEX Linux 版を用意
         run: |
-          sudo add-apt-repository -y ppa:fex-emu/fex
-          sudo apt-get update
-          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y fex-emu-armv8.0
-          command -v FEXInterpreter
+          set -o pipefail
+          mkdir -p "$RUNNER_TEMP/results"
+          trap 'rc=$?; if (( rc != 0 )); then details=$(tail -n 35 "$RUNNER_TEMP/results/fex-install.txt" | sed "s/%/%25/g" | awk '''{printf "%s%%0A", $0}'''); echo "::error::FEX の導入に失敗%0A$details"; fi' EXIT
+          {
+            sudo add-apt-repository -y ppa:fex-emu/fex
+            sudo apt-get update
+            sudo DEBIAN_FRONTEND=noninteractive apt-get install -y fex-emu-armv8.0
+            command -v FEXInterpreter
+          } 2>&1 | tee "$RUNNER_TEMP/results/fex-install.txt"
       - name: Box64 Linux 版をビルド
         run: |
           git clone --depth 1 --branch v0.4.4 https://github.com/ptitSeb/box64.git "$RUNNER_TEMP/box64"
