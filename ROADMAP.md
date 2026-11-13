@@ -1,49 +1,49 @@
-# GameNative Roadmap
+# GameNative ロードマップ
 
-## Vision
+## ビジョン
 
-PC gaming is currently locked to those who can afford expensive hardware. We believe games are one of the most powerful artistic mediums we have — and that everyone should have access to them. With over 3 billion Android devices in circulation, we are changing that.
+現在、PC ゲームを楽しめるのは高価なハードウェアを購入できる人に限られています。ゲームは強力な芸術表現の一つであり、誰もが利用できるべきだと私たちは考えています。流通している Android 端末は30億台以上あり、私たちはこの状況を変えようとしています。
 
-GameNative is built in the open and improved by a global community of contributors. Our goal is to make PC gaming on Android a first class experience — bringing Steam, Epic, GOG and other storefronts natively to Android devices without streaming.
-
----
-
-## Now
-
-These are the things we are actively working on:
-
-- **Android 35 support and Google Play launch** — full compatibility with the latest Android SDK and distribution through Google Play
-- **External launchers** — getting Rockstar, EA and other launchers working reliably
-- **Online play** — making online multiplayer work for Steam and other launchers
-- **Steam cloud saves** — reliable cloud save support for Steam games
-- **Non-Steam store support** — downloads, installs, DLC and deletions working well for Epic, GOG and Amazon
-- **Epic and GOG** — cloud saves working reliably for both, EOS DRM working for Epic
-- **Steam Input** — fixing reliability issues across games including No Man's Sky and others
-- **Controller** — making PC games genuinely playable on a touchscreen, including layout, comfort and also local multiplayer support
-- **External devices** — reliable support for keyboards, mice and other external peripherals
-- **External storage** — reliable external storage with fast downloads and fast game launches
-- **Code quality** — reducing complexity and duplication, especially across Epic, GOG and Amazon integrations
-- **Game compatibility** — more games working out of the box without manual tweaks
-- **Device support** — ensuring GameNative works great across a wide range of Android devices, chipsets and form factors
+GameNative はオープンに開発され、世界中の貢献者によって改善されています。目標は、Steam、Epic、GOG などのストアをストリーミングなしで Android 端末に直接提供し、Android での PC ゲームを一級の体験にすることです。
 
 ---
 
-## Later
+## 現在
 
-Where we are taking GameNative over the longer term:
+現在積極的に取り組んでいること：
 
-- **Performance and thermals** — increasing performance and reducing heat during extended play sessions to make mobile gaming more viable
-- **Supporting indie devs** — discovering and recommending indie PC games, ensuring they work great on GameNative, and helping indie developers reach a new audience on Android
-- **Upstream contributions** — actively contributing to Proton, Wine, FEX, Box64, DXVK, VKD3D and other components that make PC gaming on Android possible
-- **Hardware partnerships** — working with manufacturers of gaming handhelds, phones and tablets to make device-specific optimizations
-- **Steam Deck alternative** — making GameNative a full replacement for Steam Deck-like devices on Android
+- **Android 35 対応と Google Play での公開** — 最新の Android SDK への完全対応と Google Play での配布
+- **外部ランチャー** — Rockstar、EA などのランチャーの安定動作
+- **オンラインプレイ** — Steam などのランチャーでオンラインマルチプレイを実現
+- **Steam クラウドセーブ** — Steam ゲームの信頼性の高いクラウドセーブ対応
+- **Steam 以外のストアへの対応** — Epic、GOG、Amazon のダウンロード、インストール、DLC、削除の改善
+- **Epic と GOG** — 両ストアの安定したクラウドセーブと Epic の EOS DRM 対応
+- **Steam Input** — No Man's Sky を含むゲームでの信頼性の問題の修正
+- **コントローラー** — レイアウトや操作性、ローカルマルチプレイを含め、タッチ画面で PC ゲームを快適にプレイできるようにする
+- **外部機器** — キーボード、マウスなどの周辺機器の安定したサポート
+- **外部ストレージ** — 高速なダウンロードとゲーム起動を備えた安定した外部ストレージ対応
+- **コード品質** — 特に Epic、GOG、Amazon との連携における複雑さと重複の削減
+- **ゲームの互換性** — 手動調整なしで動作するゲームを増やす
+- **端末対応** — 幅広い Android 端末、チップセット、形状で快適に動作するようにする
 
 ---
 
-## Contributing
+## 将来
 
-Before opening a PR, start a discussion and get alignment first. If you have access to #code-changes, post there. Otherwise open a thread in #development. PRs without prior discussion will be closed.
+長期的な方向性：
 
-If you're unsure whether your idea is in scope, discuss it first before writing any code. We genuinely appreciate every contribution — please understand that not everything will align with the current direction of the project.
+- **性能と発熱** — 長時間プレイ時の性能を向上させ、発熱を抑えてモバイルでのゲームをより実用的にする
+- **インディー開発者への支援** — インディー PC ゲームを発見・推奨し、GameNative で快適に動作させ、Android の新たな利用者に届ける
+- **上流プロジェクトへの貢献** — Proton、Wine、FEX、Box64、DXVK、VKD3D など Android での PC ゲームを可能にするコンポーネントに積極的に貢献する
+- **ハードウェアパートナーシップ** — 携帯ゲーム機、スマートフォン、タブレットのメーカーと協力し、端末固有の最適化を行う
+- **Steam Deck の代替** — Android 上で Steam Deck のような端末の完全な代替となるようにする
 
-See our contribution guidelines for more detail.
+---
+
+## 貢献
+
+PR を作成する前に議論を開始し、認識を合わせてください。#code-changes にアクセスできる場合はそこで投稿し、それ以外の場合は #development にスレッドを作成してください。事前の議論がない PR はクローズされます。
+
+アイデアが対象範囲内か不明な場合は、コードを書く前に相談してください。すべての貢献に感謝していますが、現在のプロジェクトの方向性にすべてが合うわけではないことをご理解ください。
+
+詳しくは貢献ガイドラインを参照してください。

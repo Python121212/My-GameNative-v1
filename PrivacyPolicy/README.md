@@ -1,78 +1,81 @@
-# Privacy Policy for GameNative
-<sub>Last Updated: July 12, 2026</sub>
+# GameNative プライバシーポリシー
+<sub>最終更新日：2026年7月12日</sub>
 
-GameNative is an unofficial client application that lets you access your libraries from supported PC game stores and play your owned games on your device.
+GameNative は、対応する PC ゲームストアのライブラリにアクセスし、所有するゲームを端末でプレイできる非公式クライアントアプリです。
 
-## Data Collection and Usage
+## データの収集と使用
 
-**Local Storage Only**
-Sensitive data — including your login credentials and session information for the game stores you sign into (such as Steam, Epic Games, GOG, and Amazon) — is stored locally on your device. We do not collect, transmit, or store this personal information on our own servers.
+**端末へのみ保存**
 
-**Game Store Integrations**
-When you sign into a supported store (Steam, Epic Games, GOG, or Amazon), your device communicates directly with that store's servers to authenticate your account and access your game library. Any data those stores collect, store, or process is governed by their own privacy policies and terms of service.
+ログインしたゲームストア（Steam、Epic Games、GOG、Amazon など）の認証情報やセッション情報を含む機密データは、お使いの端末に保存されます。当プロジェクトのサーバーでは、この個人情報の収集、送信、保存を行いません。
 
-**Anonymous Usage Metadata**
-GameNative collects limited, non-personal technical metadata to improve compatibility and performance. This may include:
+**ゲームストアとの連携**
 
-- Game launch and close events
-- Selected configuration settings
-- Hardware category information such as GPU family or driver type
-- Performance indicators such as FPS ranges or crash flags
+対応ストアにログインすると、アカウント認証とゲームライブラリへのアクセスのため、端末がそのストアのサーバーと直接通信します。ストアが収集、保存、処理するデータには、それぞれのプライバシーポリシーと利用規約が適用されます。
 
-This data:
+**匿名の利用メタデータ**
 
-- Does not include your name, email, store credentials, IP address, or any direct identifiers
-- Cannot be used to identify you personally
-- Is used only to improve game compatibility, recommend working settings, and prioritize development fixes
+互換性とパフォーマンスを改善するため、GameNative は個人を特定しない限定的な技術メタデータを収集します。これには次が含まれる場合があります。
 
-GameNative does not build user profiles, track browsing activity, or sell data to third parties.
+- ゲームの起動・終了イベント
+- 選択された設定
+- GPU ファミリーやドライバーの種類などのハードウェア分類情報
+- FPS の範囲やクラッシュの有無などのパフォーマンス指標
 
-## Game Recommendations
+このデータは、
 
-GameNative can suggest games you might like from GOG.com, based on the games you already play. **We do not send any of your game or account information to GOG unless you explicitly opt in by accepting an in-app consent prompt.** Until you consent, nothing about the games you play is shared with GOG. You can turn the feature off again at any time in **Settings → Interface → Show game recommendations**.
+- 名前、メールアドレス、ストアの認証情報、IP アドレス、その他の直接的な識別子を含みません
+- 個人の特定には使用できません
+- ゲームの互換性の改善、動作する設定の推奨、修正の優先順位付けにのみ使用されます
 
-Once you have opted in:
+GameNative はユーザープロファイルを作成せず、閲覧履歴を追跡せず、第三者にデータを販売しません。
 
-- The app looks at which games you play most and most recently on your device, and shares the corresponding game identifiers with GOG's recommendation service to generate suggestions.
-- If you are signed into GOG, your GOG account identifier is included, so recommendations can be tailored and games you already own can be excluded.
-- These identifiers are sent directly to GOG's recommendation, catalog, and games-database services. GOG's handling of them is governed by GOG's own privacy policy.
+## ゲームのおすすめ
 
-Recommended games link to GOG's store through an affiliate program (Commission Junction). If you follow one of these links, the affiliate network may record the click for attribution, and GameNative may earn a commission on any resulting purchase. This does not change the price you pay.
+GameNative は、すでにプレイしているゲームに基づき、GOG.com のゲームをおすすめすることがあります。**アプリ内の同意画面で明示的に同意しない限り、ゲームやアカウントの情報を GOG に送信しません。** 同意するまでは、プレイしているゲームに関する情報は GOG に共有されません。この機能は **設定 → インターフェース → ゲームのおすすめを表示** でいつでもオフにできます。
 
-Turning recommendations off stops all of the above: no game or account information is sent to GOG for recommendations, and the recommendations section is hidden.
+同意後は以下が適用されます。
 
-## Third-Party Services
+- 端末上で最も頻繁に、また最近プレイしたゲームをアプリが確認し、おすすめを生成するために対応するゲーム識別子を GOG のおすすめサービスに共有します。
+- GOG にログインしている場合、おすすめのカスタマイズと所有済みゲームの除外のため、GOG アカウント識別子も含まれます。
+- これらの識別子は GOG のおすすめ、カタログ、ゲームデータベースの各サービスに直接送信されます。GOG による取り扱いには GOG 自身のプライバシーポリシーが適用されます。
 
-GameNative functions as an interface to the game stores you choose to use (Steam, Epic Games, GOG, and Amazon). We have no control over or responsibility for how those platforms collect, use, or store your information. Please refer to each platform's privacy policy to understand how they handle your data.
+おすすめゲームは、アフィリエイトプログラム（Commission Junction）を通じて GOG ストアにリンクしています。リンクをたどると、成果の帰属を確認するためアフィリエイトネットワークがクリックを記録し、購入が発生した場合に GameNative が手数料を受け取ることがあります。支払う価格は変わりません。
 
-## Meta Horizon (Quest) Store Version
+おすすめをオフにすると、上記はすべて停止します。おすすめのためにゲームやアカウントの情報が GOG に送信されなくなり、おすすめ欄も非表示になります。
 
-**This section applies only to the version of GameNative distributed through the Meta Horizon Store. The free, open-source build distributed via GitHub does not collect or use any of the data described in this section.**
+## 第三者サービス
 
-On the Meta Horizon Store version, the app reads your Meta account ID and your subscription/entitlement status in order to confirm your access and unlock the app on that platform. This information is used only for that verification. It is processed on your device and through Meta's In-App Purchases platform, and Meta's handling of it is governed by Meta's privacy policy. We do not store it on our own servers, and we do not share or sell it.
+GameNative は利用者が選択したゲームストア（Steam、Epic Games、GOG、Amazon）へのインターフェースとして機能します。当プロジェクトは、これらのプラットフォームによる情報の収集、利用、保存を管理せず、その取り扱いについて責任を負いません。データの扱いについては各プラットフォームのプライバシーポリシーをご確認ください。
 
-## Data Security
+## Meta Horizon（Quest）ストア版
 
-Your login credentials and session data are stored securely on your device using your platform's standard security protocols. This data is only used to facilitate communication between your device and the game stores' servers.
+**この節は Meta Horizon Store で配布される GameNative にのみ適用されます。GitHub で配布される無料のオープンソース版は、この節に記載されたデータを収集または利用しません。**
 
-## Your Rights and Data Deletion
+Meta Horizon Store 版では、そのプラットフォームでのアクセス権を確認してアプリを利用可能にするため、Meta アカウント ID とサブスクリプション／利用権の状態を読み取ります。この情報は確認のみに使用されます。処理は端末上および Meta のアプリ内購入プラットフォームで行われ、Meta による取り扱いには Meta のプライバシーポリシーが適用されます。当プロジェクトのサーバーには保存せず、共有や販売も行いません。
 
-You can clear all locally stored data at any time by:
+## データのセキュリティ
 
-- Logging out of the app
-- Clearing app data through your device settings
-- Uninstalling the application
+ログイン認証情報とセッションデータは、プラットフォームの標準的なセキュリティプロトコルを使用して端末に安全に保存されます。このデータは、端末とゲームストアのサーバーとの通信を円滑にする目的にのみ使用されます。
 
-We do not retain your personal information on our own servers. If you believe we hold any data associated with you — for example, support correspondence — you can request its deletion by emailing support[at]gamenative[dot]app, and we will action verified requests.
+## 利用者の権利とデータの削除
 
-## Changes to Privacy Policy
+ローカルに保存されたすべてのデータは、次の方法でいつでも消去できます。
 
-We reserve the right to update this privacy policy at any time. Any changes will be effective immediately upon posting the updated policy.
+- アプリからログアウトする
+- 端末の設定からアプリデータを消去する
+- アプリをアンインストールする
 
-## Contact Information
+当プロジェクトは、個人情報を独自のサーバーに保持しません。サポートに関するやり取りなど、ご自身に関連するデータを当プロジェクトが保持していると思われる場合は、support[at]gamenative[dot]app にメールして削除を依頼できます。確認済みの依頼に対応します。
 
-For questions about this privacy policy or GameNative's privacy practices, please contact us at support[at]gamenative[dot]app.
+## プライバシーポリシーの変更
 
-## Age Requirements
+当プロジェクトは、このプライバシーポリシーをいつでも更新する権利を留保します。変更は更新されたポリシーの掲載と同時に有効になります。
 
-Users must be at least 13 years old to use GameNative, in accordance with the supported stores' own age requirements.
+## お問い合わせ
+
+このポリシーや GameNative のプライバシーの取り扱いについての質問は、support[at]gamenative[dot]app までご連絡ください。
+
+## 年齢要件
+
+対応ストアの年齢要件に従い、GameNative を使用するには13歳以上である必要があります。
