@@ -10,8 +10,12 @@ export HOME="$out/home" XDG_RUNTIME_DIR="$out/runtime" XDG_CACHE_HOME="$out/cach
 export FEX_ENABLECODECACHINGWIP=1
 x86_64-linux-gnu-as tools/translation-benchmark/hello-x86_64.s -o "$out/hello.o"
 x86_64-linux-gnu-ld -o "$out/hello-x86_64" "$out/hello.o"
-command -v FEXOfflineCompiler | tee "$out/compiler.txt"
-dpkg-query -W 'fex-emu-*' > "$out/fex-packages.txt" || true
+dpkg-query -W 'fex-emu-*' | tee "$out/fex-packages.txt" || true
+dpkg -L fex-emu-armv8.0 | grep -Ei 'FEX|cache' | tee "$out/package-files.txt" || true
+if ! command -v FEXOfflineCompiler | tee "$out/compiler.txt"; then
+    echo 'FEXOfflineCompiler が PATH 上にありません。Linux パッケージ内容を確認してください。' >&2
+    exit 1
+fi
 # 初回で記録、次回にオフライン生成を要求する（FEX の版で動作は異なりうる）。
 for run in 1 2; do
     timeout 90 FEX "$out/hello-x86_64" 2>&1 | tee "$out/run-$run.txt"
