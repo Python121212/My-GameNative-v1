@@ -1,0 +1,57 @@
+name: Publish existing debug APK
+
+on:
+  push:
+    paths:
+      - '.github/workflows/publish-existing-debug-apk.yml'
+  workflow_dispatch:
+    inputs:
+      run_id:
+        description: Successful debug APK workflow run ID
+        type: string
+        required: true
+      target_sha:
+        description: Commit SHA used by that run
+        type: string
+        required: true
+      variant:
+        description: APK variant
+        type: choice
+        options: [modern, legacy]
+        required: true
+
+permissions:
+  actions: read
+  contents: write
+
+jobs:
+  publish:
+    if: ${{ github.event_name == 'workflow_dispatch' || startsWith(github.event.head_commit.message, 'Publish existing debug APK') }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download and publish APK
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          BUILD_RUN: ${{ inputs.run_id || '43370200759' }}
+          TARGET_SHA: ${{ inputs.target_sha || '3ab93dfdf22eb2cd97f0944a4699d8851352f075' }}
+          VARIANT: ${{ inputs.variant || 'modern' }}
+        run: |
+          set -euo pipefail
+          actual_sha=$(gh api "repos/$REPO/actions/runs/$BUILD_RUN" --jq '.head_sha')
+          conclusion=$(gh api "repos/$REPO/actions/runs/$BUILD_RUN" --jq '.conclusion')
+          if [[ "$actual_sha" != "$TARGET_SHA" || "$conclusion" != success ]]; then
+            echo '::error::Build run must have succeeded for the specified commit.'
+            exit 1
+          fi
+          gh run download "$BUILD_RUN" --repo "$REPO" --name "gamenative-$VARIANT-debug-apk" --dir apk
+          shopt -s nullglob
+          apks=(apk/*.apk)
+          if (( ${#apks[@]} == 0 )); then
+            echo '::error::No APK found in artifact.'
+            exit 1
+          fi
+          gh release create "debug-${BUILD_RUN}" "${apks[@]}" --repo "$REPO" \
+            --target "$TARGET_SHA" --prerelease \
+            --title "GameNative ${VARIANT} debug (${BUILD_RUN})" \
+            --notes "Development build signed with the Android debug key. Not intended for production distribution. Built from commit ${TARGET_SHA}."
