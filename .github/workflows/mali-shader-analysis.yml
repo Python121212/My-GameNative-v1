@@ -1,0 +1,28 @@
+name: Mali シェーダー解析
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  analyze:
+    # ライセンスを確認したうえで、所有者が公式の malioc と glslangValidator を
+    # インストールした信頼できる専用ランナーを用意する。GitHub ホストには含まれない。
+    runs-on: [self-hosted, linux, x64, malioc]
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+      - name: Mali-G715 向け Vulkan シェーダーを解析
+        env:
+          MALIOC_REPORT_DIR: ${{ runner.temp }}/malioc-report
+        run: ./tools/analyze-mali-shader.sh vulkan app/src/main/cpp/winlator/window.frag
+      - name: 解析結果の保存
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: mali-g715-shader-report
+          path: ${{ runner.temp }}/malioc-report/report.txt
+          if-no-files-found: warn
+          retention-days: 14
