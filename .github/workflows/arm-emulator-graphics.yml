@@ -7,6 +7,9 @@ on:
     paths:
       - '.github/workflows/arm-emulator-graphics.yml'
       - 'app/src/androidTest/java/app/gamenative/ArmNativeBridgeSmokeTest.kt'
+      - 'app/src/androidTest/java/com/winlator/renderer/TextureFilterOptimizationTest.kt'
+      - 'app/src/main/java/com/winlator/renderer/Texture.java'
+      - 'tools/test-arm-emulator.sh'
 
 permissions:
   contents: read
@@ -32,10 +35,18 @@ jobs:
       - name: アプリとテスト APK のビルド
         run: |
           touch local.properties
+          set +e
           ./gradlew :app:assembleModernDebug :app:assembleModernDebugAndroidTest \
             --no-daemon --max-workers=2 \
             -Dorg.gradle.jvmargs='-Xmx3g -Dfile.encoding=UTF-8' \
-            -Pkotlin.daemon.jvmargs=-Xmx5g
+            -Pkotlin.daemon.jvmargs=-Xmx5g 2>&1 | tee gradle-emulator.log
+          status=${PIPESTATUS[0]}
+          set -e
+          if (( status != 0 )); then
+            details=$(tail -n 60 gradle-emulator.log | sed -e 's/%/%25/g' | awk '{printf "%s%%0A", $0}')
+            echo "::error::$details"
+          fi
+          exit "$status"
       - name: KVM の確認
         id: kvm
         run: |

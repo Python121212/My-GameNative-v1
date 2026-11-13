@@ -25,14 +25,14 @@ fi
 # adb はテスト失敗時も成功終了する場合があるため、出力も必ず検証する。
 set +e
 adb shell am instrument -w -r \
-    -e class 'app.gamenative.ArmNativeBridgeSmokeTest,app.gamenative.GraphicsDeviceSmokeTest' \
+    -e class 'app.gamenative.ArmNativeBridgeSmokeTest,app.gamenative.GraphicsDeviceSmokeTest,com.winlator.renderer.TextureFilterOptimizationTest' \
     app.gamenative.test/androidx.test.runner.AndroidJUnitRunner 2>&1 | tr -d '\r' | tee emulator-results/instrumentation.txt
 status=${PIPESTATUS[0]}
 set -e
 adb logcat -d -s 'GraphicsDeviceSmokeTest:I' '*:S' > emulator-results/graphics-log.txt || true
 cat emulator-results/graphics-log.txt
-if (( status != 0 )) || ! grep -Eq '^OK \(2 tests?\)' emulator-results/instrumentation.txt; then
+if (( status != 0 )) || ! grep -Eq '^OK \(3 tests?\)' emulator-results/instrumentation.txt; then
     echo 'ARM64 ライブラリまたは OpenGL のテストに失敗しました。' >&2
     exit 1
 fi
-echo 'ARM64 ライブラリの読み込みと OpenGL ES の基本描画が成功しました。'
+echo 'ARM64 ライブラリの読み込み、OpenGL ES の基本描画、フィルター設定の確認が成功しました。'
