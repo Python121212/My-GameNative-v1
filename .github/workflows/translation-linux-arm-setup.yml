@@ -71,7 +71,7 @@ jobs:
           status=${PIPESTATUS[0]}
           set -e
           if (( status != 0 )); then
-            details=$(tail -n 30 "$RUNNER_TEMP/results/wine-setup.txt" | tr -d '\\r' | sed 's/%/%25/g' | awk '{printf "%s%%0A", $0}')
+            details=$(tail -n 30 "$RUNNER_TEMP/results/wine-setup.txt" | tr -d '\r' | sed 's/%/%25/g' | awk '{printf "%s%%0A", $0}')
             echo "::error::Wine 環境構築に失敗%0A$details"
             exit "$status"
           fi
