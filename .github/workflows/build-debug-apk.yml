@@ -49,7 +49,8 @@ jobs:
           set -e
           if [ "$status" -ne 0 ]; then
             echo "::error::Gradle exit status: $status"
-            tail -n 50 gradle-build.log | while IFS= read -r line; do echo "::error::$line"; done
+            details=$(tail -n 50 gradle-build.log | sed -e "s/%/%25/g" | awk '{printf "%s%%0A", $0}')
+            echo "::error::$details"
           fi
           exit "$status"
       - name: Upload APK
