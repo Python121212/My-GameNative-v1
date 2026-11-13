@@ -44,10 +44,11 @@ jobs:
             task=:app:assembleLegacyDebug
           fi
           set +e
-          ./gradlew "$task" --no-daemon 2>&1 | tee gradle-build.log
+          ./gradlew "$task" --no-daemon --max-workers=2 -Dorg.gradle.jvmargs="-Xmx3g -Dfile.encoding=UTF-8" 2>&1 | tee gradle-build.log
           status=${PIPESTATUS[0]}
           set -e
           if [ "$status" -ne 0 ]; then
+            echo "::error::Gradle exit status: $status"
             tail -n 50 gradle-build.log | while IFS= read -r line; do echo "::error::$line"; done
           fi
           exit "$status"
