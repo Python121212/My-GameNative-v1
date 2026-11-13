@@ -1,0 +1,48 @@
+name: ARM Linux 変換器の予備構築
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'tools/translation-benchmark/hello-x86_64.s'
+      - '.github/workflows/translation-linux-arm-setup.yml'
+permissions:
+  contents: read
+jobs:
+  setup:
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v6
+      - name: ARM64 と基礎ツールを確認
+        run: |
+          test "$(uname -m)" = aarch64
+          sudo apt-get update
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y software-properties-common cmake ninja-build binutils-x86-64-linux-gnu
+      - name: FEX Linux 版を用意
+        run: |
+          sudo add-apt-repository -y ppa:fex-emu/fex
+          sudo apt-get update
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y fex-emu-armv8.0
+          command -v FEXInterpreter
+      - name: Box64 Linux 版をビルド
+        run: |
+          git clone --depth 1 --branch v0.4.4 https://github.com/ptitSeb/box64.git "$RUNNER_TEMP/box64"
+          git -C "$RUNNER_TEMP/box64" rev-parse HEAD
+          cmake -S "$RUNNER_TEMP/box64" -B "$RUNNER_TEMP/box64-build" -G Ninja -DARM_DYNAREC=ON -DCMAKE_BUILD_TYPE=Release
+          cmake --build "$RUNNER_TEMP/box64-build" -j 2
+      - name: 両変換器で x86-64 Linux 実行ファイルを起動
+        run: |
+          mkdir -p "$RUNNER_TEMP/results"
+          x86_64-linux-gnu-as tools/translation-benchmark/hello-x86_64.s -o "$RUNNER_TEMP/hello.o"
+          x86_64-linux-gnu-ld -o "$RUNNER_TEMP/hello-x86_64" "$RUNNER_TEMP/hello.o"
+          file "$RUNNER_TEMP/hello-x86_64" | tee "$RUNNER_TEMP/results/type.txt"
+          timeout 60 FEXInterpreter "$RUNNER_TEMP/hello-x86_64" | tee "$RUNNER_TEMP/results/fex.txt"
+          grep -Fx 'translation-smoke-ok' "$RUNNER_TEMP/results/fex.txt"
+          timeout 60 "$RUNNER_TEMP/box64-build/box64" "$RUNNER_TEMP/hello-x86_64" | tee "$RUNNER_TEMP/results/box64.txt"
+          grep -Fx 'translation-smoke-ok' "$RUNNER_TEMP/results/box64.txt"
+      - uses: actions/upload-artifact@v4
+        if: ${{ always() }}
+        with:
+          name: linux-arm-translator-smoke
+          path: ${{ runner.temp }}/results/*.txt
+          if-no-files-found: ignore
