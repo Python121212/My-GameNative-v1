@@ -1,0 +1,37 @@
+name: Windows CPU ベンチマークの準備
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'tools/translation-benchmark/prepare-windows-benchmark.sh'
+      - '.github/workflows/windows-benchmark-setup.yml'
+permissions:
+  contents: read
+jobs:
+  smoke:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v6
+      - name: 必要なツールを用意
+        run: |
+          sudo apt-get update
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y p7zip-full wine64 xvfb
+      - name: Windows x86-64 ベンチマークを取得
+        run: bash tools/translation-benchmark/prepare-windows-benchmark.sh "$RUNNER_TEMP/benchmark"
+      - name: Wine で実行確認（性能計測ではない）
+        run: |
+          export WINEPREFIX="$RUNNER_TEMP/wine-prefix"
+          export WINEDEBUG=-all
+          xvfb-run -a wine "$RUNNER_TEMP/benchmark/7za.exe" b -mmt1 -md20 | tee "$RUNNER_TEMP/benchmark/smoke.txt"
+      - name: ベンチマークと確認結果を保存
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-cpu-benchmark-7zip-2606
+          path: |
+            ${{ runner.temp }}/benchmark/7za.exe
+            ${{ runner.temp }}/benchmark/7za.dll
+            ${{ runner.temp }}/benchmark/*.txt
+          if-no-files-found: warn
+          retention-days: 14
