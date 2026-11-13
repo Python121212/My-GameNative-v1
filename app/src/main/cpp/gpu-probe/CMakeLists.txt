@@ -1,0 +1,5 @@
+cmake_minimum_required(VERSION 3.22.1)
+project(gpu_probe C)
+add_library(gpu_probe SHARED ../winlator/gpu_helper.c)
+target_link_libraries(gpu_probe log dl)
+target_link_options(gpu_probe PRIVATE -Wl,-z,max-page-size=16384)
