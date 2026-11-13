@@ -27,6 +27,9 @@ if ! grep -q '/fex-emu/cache/' "$out/files.txt"; then
     echo '非空の生成済みキャッシュを確認できません。' >&2
     exit 1
 fi
+echo '対照試験：キャッシュ機能を無効にして通常実行'
+FEX_ENABLECODECACHINGWIP=0 timeout 90 FEX "$out/hello-x86_64" 2>&1 | tee "$out/run-disabled.txt"
+grep -Fx 'translation-smoke-ok' "$out/run-disabled.txt"
 echo '生成後の通常実行を確認'
 timeout 90 FEX "$out/hello-x86_64" 2>&1 | tee "$out/run-cached.txt"
 if ! grep -Fx 'translation-smoke-ok' "$out/run-cached.txt"; then
