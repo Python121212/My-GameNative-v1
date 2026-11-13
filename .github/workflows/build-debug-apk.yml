@@ -1,6 +1,9 @@
 name: Build debug APK
 
 on:
+  push:
+    paths:
+      - '.github/workflows/build-debug-apk.yml'
   workflow_dispatch:
     inputs:
       variant:
@@ -31,7 +34,7 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
       - name: Build debug APK
         env:
-          VARIANT: ${{ inputs.variant }}
+          VARIANT: ${{ inputs.variant || 'modern' }}
         run: |
           if [ "$VARIANT" = modern ]; then
             ./gradlew :app:assembleModernDebug --no-daemon
@@ -41,7 +44,7 @@ jobs:
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: gamenative-${{ inputs.variant }}-debug-apk
-          path: app/build/outputs/apk/${{ inputs.variant }}/debug/*.apk
+          name: gamenative-${{ inputs.variant || 'modern' }}-debug-apk
+          path: app/build/outputs/apk/${{ inputs.variant || 'modern' }}/debug/*.apk
           if-no-files-found: error
           retention-days: 14
