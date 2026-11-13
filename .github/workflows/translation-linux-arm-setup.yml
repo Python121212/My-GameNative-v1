@@ -67,7 +67,7 @@ jobs:
       - name: Windows ベンチマーク用の Wine 環境を試験構築
         run: |
           set +e
-          bash -ec '
+          bash -e -o pipefail -c '
             image=scottyhardy/docker-wine@sha256:c61cfc490aaee10b96782b88733a0f3d0e7b425d93b4e96617d9ab9a2b6bcfd2
             docker pull --platform linux/amd64 "$image"
             docker image inspect "$image" --format "{{json .RepoDigests}}" > "$RUNNER_TEMP/results/wine-image.txt"
@@ -92,11 +92,13 @@ jobs:
             export WINEDLLPATH="$RUNNER_TEMP/wine-rootfs/opt/wine-stable/lib/wine"
             export PATH="$RUNNER_TEMP/wine-rootfs/opt/wine-stable/bin:$PATH"
             echo "FEX で Windows 版ベンチマークを動作確認します"
-            timeout 300 xvfb-run -a env WINEDEBUG=+loaddll WINEPREFIX="$RUNNER_TEMP/wine-fex" FEX_ROOTFS="$RUNNER_TEMP/wine-rootfs" FEX "$wine_bin" "$RUNNER_TEMP/benchmark/7za.exe" b -mmt1 -md20
+            timeout 300 xvfb-run -a env WINEDEBUG=-all WINEPREFIX="$RUNNER_TEMP/wine-fex" FEX_ROOTFS="$RUNNER_TEMP/wine-rootfs" FEX "$wine_bin" "$RUNNER_TEMP/benchmark/7za.exe" b -mmt1 -md20 2>&1 | tee "$RUNNER_TEMP/results/windows-fex.txt"
+            grep -E "^Tot:" "$RUNNER_TEMP/results/windows-fex.txt"
             echo "初期化済みの Wine 設定を複製して Box64 の起動を確認します（性能比較には使用しません）"
             cp -a "$RUNNER_TEMP/wine-fex" "$RUNNER_TEMP/wine-box64"
             echo "Box64 で Windows 版ベンチマークを動作確認します"
-            timeout 150 xvfb-run -a env BOX64_LOG=1 WINEDEBUG=-all WINEPREFIX="$RUNNER_TEMP/wine-box64" "$RUNNER_TEMP/box64-cache/box64" "$wine_bin" "$RUNNER_TEMP/benchmark/7za.exe" b -mmt1 -md20
+            timeout 150 xvfb-run -a env BOX64_LOG=1 WINEDEBUG=-all WINEPREFIX="$RUNNER_TEMP/wine-box64" "$RUNNER_TEMP/box64-cache/box64" "$wine_bin" "$RUNNER_TEMP/benchmark/7za.exe" b -mmt1 -md20 2>&1 | tee "$RUNNER_TEMP/results/windows-box64.txt"
+            grep -E "^Tot:" "$RUNNER_TEMP/results/windows-box64.txt"
           ' 2>&1 | tee "$RUNNER_TEMP/results/wine-setup.txt"
           status=${PIPESTATUS[0]}
           set -e
