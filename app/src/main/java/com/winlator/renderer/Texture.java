@@ -32,6 +32,8 @@ public class Texture {
     }
 
     public void setFilters(int minFilter, int magFilter) {
+        // テクスチャ生成時に保存済みの設定は適用されるため、同じ値の再送は不要。
+        if (this.minFilter == minFilter && this.magFilter == magFilter) return;
         this.minFilter = minFilter;
         this.magFilter = magFilter;
         if (textureId > 0) {
