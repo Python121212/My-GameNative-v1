@@ -69,6 +69,21 @@ jobs:
           disable-linux-hw-accel: ${{ steps.kvm.outputs.disable }}
           emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -camera-back none -camera-front none
           script: bash tools/test-arm-emulator.sh
+      - name: 失敗時の診断情報
+        if: ${{ failure() }}
+        run: |
+          for file in emulator-results/device.txt emulator-results/instrumentation.txt emulator-results/launch.txt; do
+            if [ -f "$file" ]; then
+              details=$(tail -n 80 "$file" | sed -e 's/%/%25/g' | awk '{printf "%s%%0A", $0}')
+              echo "::error::$file%0A$details"
+            else
+              echo "::warning::$file は作成されませんでした。"
+            fi
+          done
+          if [ -f emulator-results/activities.txt ]; then
+            details=$(grep -E 'topResumedActivity|mResumedActivity' emulator-results/activities.txt | sed -e 's/%/%25/g' | awk '{printf "%s%%0A", $0}' || true)
+            echo "::error::前面アクティビティ%0A$details"
+          fi
       - name: テスト結果の保存
         if: ${{ always() }}
         uses: actions/upload-artifact@v4
