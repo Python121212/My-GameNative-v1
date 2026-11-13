@@ -3,6 +3,15 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 mkdir -p emulator-results
+capture_failure() {
+    status=$?
+    if (( status != 0 )); then
+        adb logcat -d -v brief -t 5000 > emulator-results/failure-log.txt 2>&1 || true
+        details=$(grep -iE 'app.gamenative|AndroidRuntime|FATAL|Exception|CrashHandler' emulator-results/failure-log.txt | tail -n 60 | sed -e 's/%/%25/g' | awk '{printf "%s%%0A", $0}' || true)
+        echo "::error::エミュレーターの失敗ログ%0A$details"
+    fi
+}
+trap capture_failure EXIT
 shopt -s nullglob
 apps=(app/build/outputs/apk/modern/debug/*.apk)
 tests=(app/build/outputs/apk/androidTest/modern/debug/*.apk)
@@ -40,6 +49,7 @@ echo 'ARM64 ライブラリの読み込み、OpenGL ES の基本描画、フィ�
 
 # アプリ本体を起動し、画面表示とプロセスの生存を確認する。
 adb shell am force-stop app.gamenative
+adb logcat -c
 adb shell pm grant app.gamenative android.permission.POST_NOTIFICATIONS || true
 adb shell input keyevent KEYCODE_WAKEUP
 adb shell wm dismiss-keyguard || true
@@ -48,14 +58,14 @@ if ! grep -q 'Status: ok' emulator-results/launch.txt; then
     echo 'アプリの起動に失敗しました。' >&2
     exit 1
 fi
-initial_pid=$(adb shell pidof app.gamenative | tr -d '\r')
+initial_pid=$(adb shell pidof app.gamenative 2>/dev/null | tr -d '\r' || true)
 if [[ -z "$initial_pid" ]]; then
     echo 'アプリのプロセスが起動していません。' >&2
     exit 1
 fi
 for _ in {1..10}; do
     sleep 1
-    pid=$(adb shell pidof app.gamenative | tr -d '\r')
+    pid=$(adb shell pidof app.gamenative 2>/dev/null | tr -d '\r' || true)
     if [[ "$pid" != "$initial_pid" ]]; then
         echo '起動後10秒以内にアプリが終了または再起動しました。' >&2
         exit 1
