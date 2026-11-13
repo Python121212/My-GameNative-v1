@@ -10,6 +10,7 @@ mkdir -p "$out"
 archive="$out/7z2606-extra.7z"
 curl --fail --location --retry 2 --connect-timeout 30 --max-time 300 --max-filesize 134217728 \
     'https://github.com/ip7z/7zip/releases/download/26.06/7z2606-extra.7z' -o "$archive"
+printf '%s  %s\n' '396c180f12d2247c24b0b1fcd482c6fc2a2700f61211ffede1061dd971f5e104' "$archive" | sha256sum -c -
 sha256sum "$archive" > "$out/archive-sha256.txt"
 # 必要な公式バイナリだけを取り出す。既存ディレクトリは上書きしない。
 7z e -y "$archive" 'x64/7za.exe' 'x64/7za.dll' "-o$out" > "$out/extract-log.txt"

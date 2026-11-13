@@ -17,7 +17,7 @@ jobs:
         run: |
           test "$(uname -m)" = aarch64
           sudo apt-get update
-          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y software-properties-common cmake ninja-build binutils-x86-64-linux-gnu
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y software-properties-common cmake ninja-build binutils-x86-64-linux-gnu proot p7zip-full xvfb
       - name: FEX Linux 版を用意
         run: |
           mkdir -p "$RUNNER_TEMP/results"
@@ -51,6 +51,30 @@ jobs:
           grep -Fx 'translation-smoke-ok' "$RUNNER_TEMP/results/fex.txt"
           timeout 60 "$RUNNER_TEMP/box64-build/box64" "$RUNNER_TEMP/hello-x86_64" | tee "$RUNNER_TEMP/results/box64.txt"
           grep -Fx 'translation-smoke-ok' "$RUNNER_TEMP/results/box64.txt"
+      - name: Windows ベンチマーク用の Wine 環境を試験構築
+        run: |
+          set +e
+          bash -ec '
+            image=scottyhardy/docker-wine:latest
+            docker pull --platform linux/amd64 "$image"
+            docker image inspect "$image" --format "{{json .RepoDigests}}" > "$RUNNER_TEMP/results/wine-image.txt"
+            container=$(docker create --platform linux/amd64 "$image")
+            mkdir -p "$RUNNER_TEMP/wine-rootfs"
+            docker export "$container" | tar -x -C "$RUNNER_TEMP/wine-rootfs" --no-same-owner --no-same-permissions --exclude="dev/*"
+            docker rm "$container"
+            bash tools/translation-benchmark/prepare-windows-benchmark.sh "$RUNNER_TEMP/benchmark"
+            echo "FEX で Wine のバージョンを取得します"
+            timeout 120 proot -R "$RUNNER_TEMP/wine-rootfs" -q "$(command -v FEX)" /usr/bin/wine --version
+            echo "Box64 で Wine のバージョンを取得します"
+            timeout 120 proot -R "$RUNNER_TEMP/wine-rootfs" -q "$RUNNER_TEMP/box64-build/box64" /usr/bin/wine --version
+          ' 2>&1 | tee "$RUNNER_TEMP/results/wine-setup.txt"
+          status=${PIPESTATUS[0]}
+          set -e
+          if (( status != 0 )); then
+            details=$(tail -n 30 "$RUNNER_TEMP/results/wine-setup.txt" | sed 's/%/%25/g' | awk '{printf "%s%%0A", $0}')
+            echo "::error::Wine 環境構築に失敗%0A$details"
+            exit "$status"
+          fi
       - uses: actions/upload-artifact@v4
         if: ${{ always() }}
         with:
