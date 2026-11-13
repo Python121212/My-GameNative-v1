@@ -22,10 +22,12 @@ for run in 1 2; do
     grep -Fx 'translation-smoke-ok' "$out/run-$run.txt"
 done
 find "$out/cache" -type f -printf '%p %s bytes\n' | tee "$out/files.txt"
-if ! find "$out/cache" -type f -path '*/fex-emu/cache/*' -size +0c | grep -q .; then
+echo '生成済みファイルの存在確認'
+if ! grep -q '/fex-emu/cache/' "$out/files.txt"; then
     echo '非空の生成済みキャッシュを確認できません。' >&2
     exit 1
 fi
+echo 'strace による読み込み追跡を開始'
 # open 成功とそのファイルの mmap 成功は読み込みの証拠だが、キャッシュされた命令の実行自体の証明ではない。
 set +e
 timeout 90 strace -f -yy -e trace=openat,mmap -o "$out/trace.txt" FEX "$out/hello-x86_64" 2>&1 | tee "$out/run-3.txt"
@@ -36,7 +38,12 @@ if (( status != 0 )); then
     tail -n 25 "$out/trace.txt" >&2 || true
     exit "$status"
 fi
-grep -Fx 'translation-smoke-ok' "$out/run-3.txt"
+echo "strace の終了状態: $status"
+if ! grep -Fx 'translation-smoke-ok' "$out/run-3.txt"; then
+    echo 'strace 実行時の出力が一致しません。' >&2
+    tail -n 20 "$out/trace.txt" >&2 || true
+    exit 1
+fi
 if ! grep -E 'mmap\(.*</[^>]*fex-emu/cache/[^>]*>.*\) *= 0x' "$out/trace.txt" > "$out/mapped-cache.txt"; then
     echo 'キャッシュの mmap 成功を確認できません。' >&2
     exit 1
