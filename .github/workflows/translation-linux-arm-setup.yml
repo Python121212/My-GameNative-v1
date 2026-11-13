@@ -85,8 +85,11 @@ jobs:
             export BOX64_LD_LIBRARY_PATH="$RUNNER_TEMP/wine-rootfs/lib/x86_64-linux-gnu:$RUNNER_TEMP/wine-rootfs/usr/lib/x86_64-linux-gnu:$RUNNER_TEMP/wine-rootfs/opt/wine-stable/lib/wine/x86_64-unix"
             export BOX64_PATH="$RUNNER_TEMP/wine-rootfs/opt/wine-stable/bin"
             timeout 120 "$RUNNER_TEMP/box64-cache/box64" "$wine_bin" --version
+            find "$RUNNER_TEMP/wine-rootfs/opt/wine-stable" -iname kernel32.dll -print
+            export WINEDLLPATH="$RUNNER_TEMP/wine-rootfs/opt/wine-stable/lib/wine"
+            export PATH="$RUNNER_TEMP/wine-rootfs/opt/wine-stable/bin:$PATH"
             echo "FEX で Windows 版ベンチマークを動作確認します"
-            timeout 300 xvfb-run -a env WINEDEBUG=-all WINEPREFIX="$RUNNER_TEMP/wine-fex" FEX_ROOTFS="$RUNNER_TEMP/wine-rootfs" FEX "$wine_bin" "$RUNNER_TEMP/benchmark/7za.exe" b -mmt1 -md20
+            timeout 300 xvfb-run -a env WINEDEBUG=+loaddll WINEPREFIX="$RUNNER_TEMP/wine-fex" FEX_ROOTFS="$RUNNER_TEMP/wine-rootfs" FEX "$wine_bin" "$RUNNER_TEMP/benchmark/7za.exe" b -mmt1 -md20
             echo "Box64 で Windows 版ベンチマークを動作確認します"
             timeout 300 xvfb-run -a env WINEDEBUG=-all WINEPREFIX="$RUNNER_TEMP/wine-box64" "$RUNNER_TEMP/box64-cache/box64" "$wine_bin" "$RUNNER_TEMP/benchmark/7za.exe" b -mmt1 -md20
           ' 2>&1 | tee "$RUNNER_TEMP/results/wine-setup.txt"
