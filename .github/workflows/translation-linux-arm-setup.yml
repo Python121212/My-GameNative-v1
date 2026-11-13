@@ -86,6 +86,9 @@ jobs:
             export BOX64_PATH="$RUNNER_TEMP/wine-rootfs/opt/wine-stable/bin"
             timeout 120 "$RUNNER_TEMP/box64-cache/box64" "$wine_bin" --version
             find "$RUNNER_TEMP/wine-rootfs/opt/wine-stable" -iname kernel32.dll -print
+            test ! -e /opt/wine-stable
+            sudo ln -s "$RUNNER_TEMP/wine-rootfs/opt/wine-stable" /opt/wine-stable
+            export WINEARCH=win64
             export WINEDLLPATH="$RUNNER_TEMP/wine-rootfs/opt/wine-stable/lib/wine"
             export PATH="$RUNNER_TEMP/wine-rootfs/opt/wine-stable/bin:$PATH"
             echo "FEX で Windows 版ベンチマークを動作確認します"
