@@ -1,0 +1,86 @@
+name: Build debug APK
+
+on:
+  workflow_dispatch:
+    inputs:
+      variant:
+        description: Android variant
+        type: choice
+        options:
+          - modern
+          - legacy
+        default: modern
+        required: true
+      publish_release:
+        description: Publish the debug APK as a prerelease
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Install Android SDK components
+        run: |
+          SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          yes | "$SDKMANAGER" --licenses > /dev/null || true
+          "$SDKMANAGER" 'platforms;android-36' 'build-tools;35.0.0' 'ndk;27.3.13750724'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          # 開発ブランチでも依存関係と Gradle ビルドキャッシュを保存する。
+          cache-read-only: false
+      - name: Prepare local properties
+        run: touch local.properties
+      - name: Build debug APK
+        env:
+          VARIANT: ${{ inputs.variant || 'modern' }}
+        run: |
+          if [ "$VARIANT" = modern ]; then
+            task=:app:assembleModernDebug
+          else
+            task=:app:assembleLegacyDebug
+          fi
+          set +e
+          ./gradlew "$task" --no-daemon --max-workers=2 -Dorg.gradle.jvmargs="-Xmx3g -Dfile.encoding=UTF-8" -Pkotlin.daemon.jvmargs=-Xmx5g 2>&1 | tee gradle-build.log
+          status=${PIPESTATUS[0]}
+          set -e
+          if [ "$status" -ne 0 ]; then
+            echo "::error::Gradle exit status: $status"
+            details=$(tail -n 50 gradle-build.log | sed -e "s/%/%25/g" | awk '{printf "%s%%0A", $0}')
+            echo "::error::$details"
+          fi
+          exit "$status"
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: gamenative-${{ inputs.variant || 'modern' }}-debug-apk
+          path: app/build/outputs/apk/${{ inputs.variant || 'modern' }}/debug/*.apk
+          if-no-files-found: error
+          # APK は既に圧縮されているため、再圧縮の CPU 時間を省く。
+          compression-level: 0
+          retention-days: 14
+      - name: Publish debug prerelease
+        if: ${{ inputs.publish_release == true }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VARIANT: ${{ inputs.variant || 'modern' }}
+        run: |
+          shopt -s nullglob
+          apks=(app/build/outputs/apk/"$VARIANT"/debug/*.apk)
+          if (( ${#apks[@]} == 0 )); then
+            echo "::error::No APK found to publish"
+            exit 1
+          fi
+          gh release create "debug-${GITHUB_RUN_ID}" "${apks[@]}" \
+            --target "$GITHUB_SHA" --prerelease \
+            --title "GameNative ${VARIANT} debug (${GITHUB_RUN_ID})" \
+            --notes "Development build signed with the Android debug key. Not intended for production distribution. Built from commit ${GITHUB_SHA}."

@@ -1,0 +1,101 @@
+name: APK ビルド時間の計測
+
+on:
+  push:
+    paths:
+      - '.github/workflows/measure-apk.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  measure:
+    if: ${{ github.event_name == 'workflow_dispatch' || startsWith(github.event.head_commit.message, 'Measure APK build') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 150
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Android SDK の準備
+        run: |
+          SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          yes | "$SDKMANAGER" --licenses > /dev/null || true
+          "$SDKMANAGER" 'platforms;android-36' 'build-tools;35.0.0' 'ndk;27.3.13750724'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: false
+      - name: ビルドの準備
+        run: touch local.properties
+      - name: クリーンビルドを4回計測
+        run: |
+          set -euo pipefail
+          printf '回,秒\n' > build-times.csv
+          for n in 1 2 3 4; do
+            start=$(date +%s)
+            set +e
+            ./gradlew clean :app:assembleModernDebug --no-daemon --max-workers=2 -Dorg.gradle.jvmargs="-Xmx3g -Dfile.encoding=UTF-8" -Pkotlin.daemon.jvmargs=-Xmx5g 2>&1 | tee "build-${n}.log"
+            status=${PIPESTATUS[0]}
+            set -e
+            elapsed=$(( $(date +%s) - start ))
+            printf '%s,%s\n' "$n" "$elapsed" >> build-times.csv
+            echo "::notice::${n}回目: ${elapsed}秒 (終了コード ${status})"
+            if (( status != 0 )); then
+              details=$(tail -n 40 "build-${n}.log" | sed -e 's/%/%25/g' | awk '{printf "%s%%0A", $0}')
+              echo "::error::${details}"
+              exit "$status"
+            fi
+          done
+          {
+            echo '## APK クリーンビルド計測'
+            echo '同一ランナーで clean と modern debug APK 生成を4回実行。2回目以降は Gradle キャッシュを利用。SDK 準備とアップロードは含まない。'
+            echo '```'
+            cat build-times.csv
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+      - name: 途中までの計測結果を保存
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: apk-build-times
+          path: build-times.csv
+          if-no-files-found: ignore
+          retention-days: 14
+      - name: 計測結果と APK を保存
+        uses: actions/upload-artifact@v4
+        with:
+          name: gamenative-modern-debug-measured
+          path: |
+            app/build/outputs/apk/modern/debug/*.apk
+            build-times.csv
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 14
+      - name: 更新版 APK を Releases に公開
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          apks=(app/build/outputs/apk/modern/debug/*.apk)
+          if (( ${#apks[@]} != 1 )); then
+            echo '::error::公開する APK を一つに特定できません。'
+            exit 1
+          fi
+          {
+            echo '開発用 debug 署名版です。Android 10 以降・arm64 向け。'
+            echo
+            echo "コミット: ${GITHUB_SHA}"
+            echo
+            echo '同一ランナーでのクリーンビルド（SDK 準備・アップロードを除く）：'
+            echo '```'
+            cat build-times.csv
+            echo '```'
+          } > release-notes.txt
+          gh release create "debug-${GITHUB_RUN_ID}" "${apks[@]}" \
+            --target "$GITHUB_SHA" --latest \
+            --title "GameNative modern debug (${GITHUB_RUN_ID})" \
+            --notes-file release-notes.txt
