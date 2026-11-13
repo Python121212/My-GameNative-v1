@@ -27,10 +27,16 @@ if ! grep -q '/fex-emu/cache/' "$out/files.txt"; then
     echo '非空の生成済みキャッシュを確認できません。' >&2
     exit 1
 fi
+echo '生成後の通常実行を確認'
+timeout 90 FEX "$out/hello-x86_64" 2>&1 | tee "$out/run-cached.txt"
+if ! grep -Fx 'translation-smoke-ok' "$out/run-cached.txt"; then
+    echo 'キャッシュ生成後の通常実行で期待した出力がありません。' >&2
+    exit 1
+fi
 echo 'strace による読み込み追跡を開始'
 # open 成功とそのファイルの mmap 成功は読み込みの証拠だが、キャッシュされた命令の実行自体の証明ではない。
 set +e
-timeout 90 strace -f -yy -e trace=openat,mmap -o "$out/trace.txt" FEX "$out/hello-x86_64" 2>&1 | tee "$out/run-3.txt"
+timeout 90 strace -f -yy -e trace=openat,mmap,write -o "$out/trace.txt" FEX "$out/hello-x86_64" 2>&1 | tee "$out/run-3.txt"
 status=${PIPESTATUS[0]}
 set -e
 if (( status != 0 )); then
