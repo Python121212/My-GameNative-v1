@@ -14,9 +14,13 @@ on:
           - legacy
         default: modern
         required: true
+      publish_release:
+        description: Publish the debug APK as a prerelease
+        type: boolean
+        default: false
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   build:
@@ -62,3 +66,19 @@ jobs:
           path: app/build/outputs/apk/${{ inputs.variant || 'modern' }}/debug/*.apk
           if-no-files-found: error
           retention-days: 14
+      - name: Publish debug prerelease
+        if: ${{ inputs.publish_release == true || (github.event_name == 'push' && github.event.head_commit.message == 'Publish debug APK release') }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VARIANT: ${{ inputs.variant || 'modern' }}
+        run: |
+          shopt -s nullglob
+          apks=(app/build/outputs/apk/"$VARIANT"/debug/*.apk)
+          if (( ${#apks[@]} == 0 )); then
+            echo "::error::No APK found to publish"
+            exit 1
+          fi
+          gh release create "debug-${GITHUB_RUN_ID}" "${apks[@]}" \
+            --target "$GITHUB_SHA" --prerelease \
+            --title "GameNative ${VARIANT} debug (${GITHUB_RUN_ID})" \
+            --notes "Development build signed with the Android debug key. Not intended for production distribution. Built from commit ${GITHUB_SHA}."
