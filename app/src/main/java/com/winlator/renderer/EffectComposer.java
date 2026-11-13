@@ -84,8 +84,7 @@ public class EffectComposer {
         writeBuffer.setFilters(GLES20.GL_NEAREST, GLES20.GL_NEAREST);
 
         sceneBuffer.allocateFramebuffer(sceneWidth, sceneHeight);
-        readBuffer.allocateFramebuffer(outputWidth, outputHeight);
-        writeBuffer.allocateFramebuffer(outputWidth, outputHeight);
+        prepareIntermediateBuffers(readBuffer, writeBuffer, outputWidth, outputHeight, snapshot.size());
 
         GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, sceneBuffer.getFramebuffer());
         GLES20.glViewport(0, 0, sceneWidth, sceneHeight);
@@ -150,6 +149,15 @@ public class EffectComposer {
             GLES20.glViewport(0, 0, outputWidth, outputHeight);
         }
         renderer.setViewportNeedsUpdate(true);
+    }
+
+    // 最後のパスは画面に出力するため、1パスでは中間バッファが不要。
+    // チェーンを短くした場合は使わなくなった GPU リソースを解放する。
+    static void prepareIntermediateBuffers(RenderTarget read, RenderTarget write, int width, int height, int effectCount) {
+        if (effectCount >= 2) read.allocateFramebuffer(width, height);
+        else read.destroy();
+        if (effectCount >= 3) write.allocateFramebuffer(width, height);
+        else write.destroy();
     }
 
     public synchronized void invalidateGLResources() {

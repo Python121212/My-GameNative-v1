@@ -4,12 +4,8 @@ on:
   workflow_call:
   workflow_dispatch:
   push:
-    paths:
-      - '.github/workflows/arm-emulator-graphics.yml'
-      - 'app/src/androidTest/java/app/gamenative/ArmNativeBridgeSmokeTest.kt'
-      - 'app/src/androidTest/java/com/winlator/renderer/TextureFilterOptimizationTest.kt'
-      - 'app/src/main/java/com/winlator/renderer/Texture.java'
-      - 'tools/test-arm-emulator.sh'
+  pull_request:
+    branches: [main]
 
 permissions:
   contents: read
@@ -80,5 +76,6 @@ jobs:
           name: arm-emulator-graphics-result
           path: |
             emulator-results/*.txt
+            emulator-results/*.png
           if-no-files-found: ignore
           retention-days: 14
