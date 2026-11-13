@@ -35,12 +35,25 @@ jobs:
             echo "::error::FEX の導入に失敗%0A$details"
             exit "$status"
           fi
+      - uses: actions/cache/restore@v4
+        id: box64_cache
+        with:
+          path: ${{ runner.temp }}/box64-cache
+          key: box64-v0.4.4-2f130fab1d6e1a4ee8a71dc60cfdfcc839ad192a-linux-arm64
       - name: Box64 Linux 版をビルド
+        if: steps.box64_cache.outputs.cache-hit != 'true'
         run: |
           git clone --depth 1 --branch v0.4.4 https://github.com/ptitSeb/box64.git "$RUNNER_TEMP/box64"
           git -C "$RUNNER_TEMP/box64" rev-parse HEAD
           cmake -S "$RUNNER_TEMP/box64" -B "$RUNNER_TEMP/box64-build" -G Ninja -DARM_DYNAREC=ON -DCMAKE_BUILD_TYPE=Release
           cmake --build "$RUNNER_TEMP/box64-build" -j 2
+          mkdir -p "$RUNNER_TEMP/box64-cache"
+          cp "$RUNNER_TEMP/box64-build/box64" "$RUNNER_TEMP/box64-cache/box64"
+      - uses: actions/cache/save@v4
+        if: steps.box64_cache.outputs.cache-hit != 'true'
+        with:
+          path: ${{ runner.temp }}/box64-cache
+          key: box64-v0.4.4-2f130fab1d6e1a4ee8a71dc60cfdfcc839ad192a-linux-arm64
       - name: 両変換器で x86-64 Linux 実行ファイルを起動
         run: |
           mkdir -p "$RUNNER_TEMP/results"
@@ -49,7 +62,7 @@ jobs:
           file "$RUNNER_TEMP/hello-x86_64" | tee "$RUNNER_TEMP/results/type.txt"
           timeout 60 FEX "$RUNNER_TEMP/hello-x86_64" | tee "$RUNNER_TEMP/results/fex.txt"
           grep -Fx 'translation-smoke-ok' "$RUNNER_TEMP/results/fex.txt"
-          timeout 60 "$RUNNER_TEMP/box64-build/box64" "$RUNNER_TEMP/hello-x86_64" | tee "$RUNNER_TEMP/results/box64.txt"
+          timeout 60 "$RUNNER_TEMP/box64-cache/box64" "$RUNNER_TEMP/hello-x86_64" | tee "$RUNNER_TEMP/results/box64.txt"
           grep -Fx 'translation-smoke-ok' "$RUNNER_TEMP/results/box64.txt"
       - name: Windows ベンチマーク用の Wine 環境を試験構築
         run: |
@@ -64,11 +77,12 @@ jobs:
             docker rm "$container"
             bash tools/translation-benchmark/prepare-windows-benchmark.sh "$RUNNER_TEMP/benchmark"
             echo "FEX で Wine のバージョンを取得します"
-            wine_bin="$RUNNER_TEMP/wine-rootfs/opt/wine-stable/bin/wine64"
-            ls -l "$wine_bin"
+            wine_bin=$(find "$RUNNER_TEMP/wine-rootfs/opt" -type f \( -name wine64 -o -name wine \) -print -quit)
+            test -n "$wine_bin"
+            file "$wine_bin"
             FEX_ROOTFS="$RUNNER_TEMP/wine-rootfs" timeout 120 FEX "$wine_bin" --version
             echo "Box64 で Wine のバージョンを取得します"
-            timeout 120 proot -R "$RUNNER_TEMP/wine-rootfs" -q "$RUNNER_TEMP/box64-build/box64" /usr/bin/wine --version
+            timeout 120 proot -R "$RUNNER_TEMP/wine-rootfs" -q "$RUNNER_TEMP/box64-cache/box64" /usr/bin/wine --version
           ' 2>&1 | tee "$RUNNER_TEMP/results/wine-setup.txt"
           status=${PIPESTATUS[0]}
           set -e
