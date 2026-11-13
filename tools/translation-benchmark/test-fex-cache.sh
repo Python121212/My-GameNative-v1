@@ -27,7 +27,15 @@ if ! find "$out/cache" -type f -path '*/fex-emu/cache/*' -size +0c | grep -q .; 
     exit 1
 fi
 # open 成功とそのファイルの mmap 成功は読み込みの証拠だが、キャッシュされた命令の実行自体の証明ではない。
+set +e
 timeout 90 strace -f -yy -e trace=openat,mmap -o "$out/trace.txt" FEX "$out/hello-x86_64" 2>&1 | tee "$out/run-3.txt"
+status=${PIPESTATUS[0]}
+set -e
+if (( status != 0 )); then
+    echo "strace 付き実行に失敗しました: $status" >&2
+    tail -n 25 "$out/trace.txt" >&2 || true
+    exit "$status"
+fi
 grep -Fx 'translation-smoke-ok' "$out/run-3.txt"
 if ! grep -E 'mmap\(.*</[^>]*fex-emu/cache/[^>]*>.*\) *= 0x' "$out/trace.txt" > "$out/mapped-cache.txt"; then
     echo 'キャッシュの mmap 成功を確認できません。' >&2
