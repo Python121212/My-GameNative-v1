@@ -24,17 +24,17 @@ jobs:
             sudo DEBIAN_FRONTEND=noninteractive apt-get install -y clang cmake ninja-build binutils-x86-64-linux-gnu strace
             git clone --depth 1 --branch FEX-2611.1 https://github.com/FEX-Emu/FEX.git "$RUNNER_TEMP/fex-source"
             test "$(git -C "$RUNNER_TEMP/fex-source" rev-parse HEAD)" = 4f9c1f1e36443d22d7655477e34f51b95b685bf1
-            git -C "$RUNNER_TEMP/fex-source" submodule update --init --depth 1 External/unordered_dense External/xxhash External/fmt External/range-v3 External/drm-headers Source/Common/cpp-optparse
+            git -C "$RUNNER_TEMP/fex-source" submodule update --init --depth 1 External/unordered_dense External/xxhash External/fmt External/range-v3 External/drm-headers External/rpmalloc Source/Common/cpp-optparse
             CC=clang CXX=clang++ cmake -S "$RUNNER_TEMP/fex-source" -B "$RUNNER_TEMP/fex-build" -G Ninja \
               -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=OFF -DBUILD_FEXCONFIG=OFF -DBUILD_THUNKS=OFF \
-              -DENABLE_LTO=OFF -DENABLE_FEX_ALLOCATOR=OFF -DENABLE_JEMALLOC_GLIBC_ALLOC=OFF
-            cmake --build "$RUNNER_TEMP/fex-build" --target FEX FEXServer FEXOfflineCompiler -j 2
+              -DENABLE_LTO=OFF -DENABLE_FEX_ALLOCATOR=ON -DENABLE_JEMALLOC_GLIBC_ALLOC=OFF
+            cmake --build "$RUNNER_TEMP/fex-build" --target FEX FEXServer FEXOfflineCompiler -j 3
             ls -la "$RUNNER_TEMP/fex-build/Bin"
           ' 2>&1 | tee "$RUNNER_TEMP/fex-build-logs/build.txt"
           status=${PIPESTATUS[0]}
           set -e
           if (( status != 0 )); then
-            details=$(tail -n 40 "$RUNNER_TEMP/fex-build-logs/build.txt" | sed 's/%/%25/g' | awk '{printf "%s%%0A", $0}')
+            details=$( { grep -E "fatal error:|error:" "$RUNNER_TEMP/fex-build-logs/build.txt" | tail -n 15 || true; tail -n 8 "$RUNNER_TEMP/fex-build-logs/build.txt" | cut -c1-500; } | sed 's/%/%25/g' | awk '{printf "%s%%0A", $0}')
             echo "::error::FEX のビルドに失敗%0A$details"
             exit "$status"
           fi
