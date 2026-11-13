@@ -1,9 +1,6 @@
 name: Build debug APK
 
 on:
-  push:
-    paths:
-      - '.github/workflows/build-debug-apk.yml'
   workflow_dispatch:
     inputs:
       variant:
@@ -38,6 +35,9 @@ jobs:
           yes | "$SDKMANAGER" --licenses > /dev/null || true
           "$SDKMANAGER" 'platforms;android-36' 'build-tools;35.0.0' 'ndk;27.3.13750724'
       - uses: gradle/actions/setup-gradle@v4
+        with:
+          # 開発ブランチでも依存関係と Gradle ビルドキャッシュを保存する。
+          cache-read-only: false
       - name: Prepare local properties
         run: touch local.properties
       - name: Build debug APK
@@ -65,9 +65,11 @@ jobs:
           name: gamenative-${{ inputs.variant || 'modern' }}-debug-apk
           path: app/build/outputs/apk/${{ inputs.variant || 'modern' }}/debug/*.apk
           if-no-files-found: error
+          # APK は既に圧縮されているため、再圧縮の CPU 時間を省く。
+          compression-level: 0
           retention-days: 14
       - name: Publish debug prerelease
-        if: ${{ inputs.publish_release == true || (github.event_name == 'push' && github.event.head_commit.message == 'Publish debug APK release') }}
+        if: ${{ inputs.publish_release == true }}
         env:
           GH_TOKEN: ${{ github.token }}
           VARIANT: ${{ inputs.variant || 'modern' }}
