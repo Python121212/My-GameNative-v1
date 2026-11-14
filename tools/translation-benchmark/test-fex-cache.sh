@@ -44,6 +44,8 @@ if ! grep -Fx 'translation-smoke-ok' "$out/run-cached.txt"; then
     cat "$out/failure-output.txt"
     tail -n 25 "$out/failure-trace.txt" || true
     set -e
+    echo '別の命令列と終了コードで補助診断します。'
+    bash tools/translation-benchmark/diagnose-fex-cache.sh "$out/diagnostics" || echo '補助診断自体が失敗しました。' >&2
     exit 1
 fi
 echo 'strace による読み込み追跡を開始'

@@ -35,13 +35,13 @@ fi
 # adb はテスト失敗時も成功終了する場合があるため、出力も必ず検証する。
 set +e
 adb shell am instrument -w -r \
-    -e class 'app.gamenative.ArmNativeBridgeSmokeTest,app.gamenative.VulkanProbeSmokeTest,app.gamenative.GraphicsDeviceSmokeTest,com.winlator.renderer.TextureFilterOptimizationTest,com.winlator.renderer.EffectBufferAllocationTest' \
+    -e class 'app.gamenative.ArmNativeBridgeSmokeTest,app.gamenative.VulkanProbeSmokeTest,app.gamenative.GraphicsDeviceSmokeTest,com.winlator.renderer.TextureFilterOptimizationTest,com.winlator.renderer.EffectBufferAllocationTest,com.winlator.renderer.FramebufferCopyReuseTest' \
     app.gamenative.test/androidx.test.runner.AndroidJUnitRunner 2>&1 | tr -d '\r' | tee emulator-results/instrumentation.txt
 status=${PIPESTATUS[0]}
 set -e
 adb logcat -d -s 'GraphicsDeviceSmokeTest:I' '*:S' > emulator-results/graphics-log.txt || true
 cat emulator-results/graphics-log.txt
-if (( status != 0 )) || ! grep -Eq '^OK \(5 tests?\)' emulator-results/instrumentation.txt; then
+if (( status != 0 )) || ! grep -Eq '^OK \(6 tests?\)' emulator-results/instrumentation.txt; then
     details=$(tail -n 60 emulator-results/instrumentation.txt | sed -e 's/%/%25/g' | awk '{printf "%s%%0A", $0}')
     echo "::error::テストに失敗しました。%0A$details"
     exit 1

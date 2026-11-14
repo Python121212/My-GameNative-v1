@@ -17,6 +17,8 @@ public class Texture {
     protected int format = GLES11Ext.GL_BGRA;
     protected byte unpackAlignment = 4;
     protected boolean needsUpdate = true;
+    private int framebufferCopyWidth = 0;
+    private int framebufferCopyHeight = 0;
 
     protected void generateTextureId() {
         int[] textureIds = new int[1];
@@ -44,6 +46,8 @@ public class Texture {
     }
 
     public void allocateTexture(short width, short height, ByteBuffer data) {
+        framebufferCopyWidth = 0;
+        framebufferCopyHeight = 0;
         generateTextureId();
 
         GLES20.glActiveTexture(GLES20.GL_TEXTURE0);
@@ -91,17 +95,37 @@ public class Texture {
         GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, framebuffer);
         GLES20.glActiveTexture(GLES20.GL_TEXTURE0);
         GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, textureId);
-        GLES20.glCopyTexImage2D(GLES20.GL_TEXTURE_2D, 0, GLES20.GL_RGBA, 0, 0, width, height, 0);
+        if (framebufferCopyWidth == width && framebufferCopyHeight == height) {
+            updateFramebufferCopy(width, height);
+        }
+        else {
+            defineFramebufferCopy(width, height);
+            framebufferCopyWidth = width;
+            framebufferCopyHeight = height;
+        }
         GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, 0);
         GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, 0);
     }
 
+    // 同一サイズならストレージの再定義を避け、内容だけをコピーする。
+    protected void defineFramebufferCopy(short width, short height) {
+        GLES20.glCopyTexImage2D(GLES20.GL_TEXTURE_2D, 0, GLES20.GL_RGBA, 0, 0, width, height, 0);
+    }
+
+    protected void updateFramebufferCopy(short width, short height) {
+        GLES20.glCopyTexSubImage2D(GLES20.GL_TEXTURE_2D, 0, 0, 0, 0, 0, width, height);
+    }
+
     public void invalidate() {
+        framebufferCopyWidth = 0;
+        framebufferCopyHeight = 0;
         textureId = 0;
         needsUpdate = true;
     }
 
     public void destroy() {
+        framebufferCopyWidth = 0;
+        framebufferCopyHeight = 0;
         if (textureId > 0) {
             int[] textureIds = new int[]{textureId};
             GLES20.glDeleteTextures(textureIds.length, textureIds, 0);

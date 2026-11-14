@@ -5,6 +5,8 @@ on:
     paths:
       - 'tools/translation-benchmark/test-fex-cache.sh'
       - 'tools/translation-benchmark/hello-x86_64.s'
+      - 'tools/translation-benchmark/cache-*-x86_64.s'
+      - 'tools/translation-benchmark/diagnose-fex-cache.sh'
       - '.github/workflows/translation-fex-cache.yml'
 permissions:
   contents: read
@@ -70,6 +72,7 @@ jobs:
         with:
           name: linux-fex-cache-check
           path: |
+            ${{ runner.temp }}/fex-cache-test/**/*.txt
             ${{ runner.temp }}/fex-cache-test/*.txt
             ${{ runner.temp }}/fex-cache-test-log.txt
             ${{ runner.temp }}/fex-build-logs/build.txt
