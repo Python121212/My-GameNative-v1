@@ -27,6 +27,7 @@ jobs:
           curl -fL --retry 3 -o "$RUNNER_TEMP/chocolate.zip" https://github.com/chocolate-doom/chocolate-doom/releases/download/chocolate-doom-3.1.1/chocolate-doom-3.1.1-win64.zip
           echo '58c34c61ae954493fce5ff01fd553898240a0de25658aa97b43ac9510c49581f  '"$RUNNER_TEMP/chocolate.zip" | sha256sum -c -
           curl -fL --retry 3 -o "$RUNNER_TEMP/freedoom.zip" https://github.com/freedoom/freedoom/releases/download/v0.13.0/freedoom-0.13.0.zip
+          echo '3f9b264f3e3ce503b4fb7f6bdcb1f419d93c7b546f4df3e874dd878db9688f59  '"$RUNNER_TEMP/freedoom.zip" | sha256sum -c -
           curl -fL --retry 3 -o "$RUNNER_TEMP/freedoom-CHECKSUM" https://github.com/freedoom/freedoom/releases/download/v0.13.0/freedoom-0.13.0-CHECKSUM
           cat "$RUNNER_TEMP/freedoom-CHECKSUM"
           echo "::notice::Freedoom 公式チェックサム%0A$(sed 's/%/%25/g' "$RUNNER_TEMP/freedoom-CHECKSUM" | awk '{printf "%s%%0A", $0}')"
