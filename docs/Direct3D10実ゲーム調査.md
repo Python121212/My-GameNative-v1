@@ -16,9 +16,13 @@
 
 GitHub Actions [43562275855](https://github.com/Python121212/My-GameNative-v1/actions/runs/43562275855) で公式 SteamCMD を準備し、無料ゲームの匿名取得を試みた。準備ステップは成功したが取得確認ステップは失敗した。実行ログのダウンロードがこの環境で EOF となり、失敗理由やゲームファイルの取得状況は確認できていない。匿名取得が権限上不可能と断定しない。
 
-次は取得ログを確認し、正規の入手またはソースのビルドを検証する。実行可能になってから、同じゲームシーン、解像度、設定、時間とフレーム制限で各4回測定し、画像と D3D10・DXVK/WineD3D の DLL 読み込みを検査する。ソフトウェア描画の Linux/Wine 結果を Android や Pixel 9a 実機の性能として扱わない。
+その後、Windows 版を指定して再試行し、[43562758317](https://github.com/Python121212/My-GameNative-v1/actions/runs/43562758317) の診断ログを確認した。SteamCMD は匿名ログインに成功したが、アプリ 995990 のインストールは `ERROR! Failed to install app '995990' (Missing configuration)` で失敗した。この方法ではゲームを取得できず、原因は未確定。SteamCMD の起動成功をゲーム取得成功と扱わない。
+
+次は正規の別の入手方法またはソースのビルドを検証する。実行可能になってから、同じゲームシーン、解像度、設定、時間とフレーム制限で各4回測定し、画像と D3D10・DXVK/WineD3D の DLL 読み込みを検査する。ソフトウェア描画の Linux/Wine 結果を Android や Pixel 9a 実機の性能として扱わない。
 
 ## 除外・保留
 
+- [GameLibrary_DirectX10](https://github.com/TD0419/GameLibrary_DirectX10/tree/e18ba48802fcc48f441b40098e3cd1c67faed793) には `d3d10.dll` をインポートする 32-bit 実行ファイルとアセットがある。しかし作者の文書ではゲームライブラリの動作を示す操作可能なサンプルであり、独立したゲーム本編として扱わない。実行ファイルはデバッグ版 Visual C++ ランタイムにも依存し、起動・描画は未検証。明示的ライセンスも見当たらず、同梱・再配布していない。
+- [Death Run](https://github.com/nmpeartree/deathrun/tree/6e0c7170d97fdef2c9ba2ffe805b3483680451ee) はリポジトリの説明に DirectX10 とあるが、実行ファイルの静的インポートは `DDRAW.dll` 等であり、D3D10 ゲームと確認できなかったため除外。
 - [GarbageEngine](https://github.com/sadegh-taghavi/GarbageEngine/tree/6c7b0b8bb4c50a48be18f3a42c1e0f6d12002acd) に同梱の GravitonBall は無料だが、現行リポジトリは DirectX 11 と説明し、ソースにも D3D11 呼び出しがある。配布済みゲームが D3D10 か確認できておらず、採用しない。
 - Call of Juarez DirectX 10 Benchmark はゲーム本編ではなく独立ベンチマークデモであり、今回の実ゲーム FPS の代用としない。
