@@ -3,7 +3,7 @@
 set -euo pipefail
 [[ $# == 4 && ! -e $1 && -f $2 && -f $3 && -f $4 ]] || { echo '使い方: run-freedoom.sh <未使用出力先> <Chocolate Doom zip> <Freedoom zip> <DXVK tar.gz>' >&2; exit 2; }
 backend=dxvk
-EXPERIMENT=dxvk-sync-cache
+EXPERIMENT=dxvk-extent-cache
 [[ -f "${DXVK_BASELINE_DLL:-}" && -f "${DXVK_CANDIDATE_DLL:-}" ]] || { echo 'ビルド済み DLL が必要' >&2; exit 2; }
 DXVK_BASELINE_DLL=$(realpath "$DXVK_BASELINE_DLL"); DXVK_CANDIDATE_DLL=$(realpath "$DXVK_CANDIDATE_DLL")
 out=$1; chocolate=$(realpath "$2"); freedoom=$(realpath "$3"); dxvk_package=$(realpath "$4"); mkdir -p "$out"; out=$(realpath "$out")

@@ -1,0 +1,31 @@
+diff --git a/src/d3d9/d3d9_swapchain.cpp b/src/d3d9/d3d9_swapchain.cpp
+index f58b2e6..3c5917f 100644
+--- a/src/d3d9/d3d9_swapchain.cpp
++++ b/src/d3d9/d3d9_swapchain.cpp
+@@ -1347,7 +1347,12 @@ namespace dxvk {
+ 
+   void D3D9SwapChainEx::UpdatePresentParameters() {
+     if (m_wctx) {
+-      m_wctx->presenter->setSurfaceExtent(m_swapchainExtent);
++      if (!m_wctx->hasExtent || m_wctx->lastExtent.width != m_swapchainExtent.width
++       || m_wctx->lastExtent.height != m_swapchainExtent.height) {
++        m_wctx->presenter->setSurfaceExtent(m_swapchainExtent);
++        m_wctx->lastExtent = m_swapchainExtent;
++        m_wctx->hasExtent = true;
++      }
+       m_wctx->presenter->setSurfaceFormat(GetSurfaceFormat());
+     }
+   }
+diff --git a/src/d3d9/d3d9_swapchain.h b/src/d3d9/d3d9_swapchain.h
+index c2248da..acff1b0 100644
+--- a/src/d3d9/d3d9_swapchain.h
++++ b/src/d3d9/d3d9_swapchain.h
+@@ -57,6 +57,8 @@ namespace dxvk {
+     Rc<sync::Fence>                frameLatencySignal;
+ 
+     uint32_t                       deviceResetCounter = 0u;
++    VkExtent2D                     lastExtent = { 0u, 0u };
++    bool                           hasExtent = false;
+   };
+ 
+   using D3D9SwapChainExBase = D3D9DeviceChild<IDirect3DSwapChain9Ex>;

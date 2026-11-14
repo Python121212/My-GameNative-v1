@@ -7,7 +7,7 @@ on:
       - 'tools/graphics-benchmark/sdl-capture.c'
       - 'tools/graphics-benchmark/create-sdl-proxy.py'
       - 'tools/graphics-benchmark/summarize-freedoom-round.py'
-      - 'tools/graphics-benchmark/patches/dxvk-present-sync-cache.patch'
+      - 'tools/graphics-benchmark/patches/dxvk-present-extent-cache.patch'
       - 'tools/graphics-benchmark/xorg-dummy.conf'
       - '.github/workflows/freedoom-dxvk-code.yml'
 permissions:
@@ -43,8 +43,8 @@ jobs:
           meson setup --cross-file build-win64.txt --buildtype release -Db_ndebug=if-release -Denable_d3d8=false -Denable_dxgi=false -Denable_d3d10=false -Denable_d3d11=false "$RUNNER_TEMP/dxvk-build"
           meson compile -C "$RUNNER_TEMP/dxvk-build" -j 2
           cp "$RUNNER_TEMP/dxvk-build/src/d3d9/d3d9.dll" "$RUNNER_TEMP/dxvk-baseline.dll"
-          git apply --check "$GITHUB_WORKSPACE/tools/graphics-benchmark/patches/dxvk-present-sync-cache.patch"
-          git apply "$GITHUB_WORKSPACE/tools/graphics-benchmark/patches/dxvk-present-sync-cache.patch"
+          git apply --check "$GITHUB_WORKSPACE/tools/graphics-benchmark/patches/dxvk-present-extent-cache.patch"
+          git apply "$GITHUB_WORKSPACE/tools/graphics-benchmark/patches/dxvk-present-extent-cache.patch"
           meson compile -C "$RUNNER_TEMP/dxvk-build" -j 2
           cp "$RUNNER_TEMP/dxvk-build/src/d3d9/d3d9.dll" "$RUNNER_TEMP/dxvk-candidate.dll"
           sha256sum "$RUNNER_TEMP/dxvk-baseline.dll" "$RUNNER_TEMP/dxvk-candidate.dll"
