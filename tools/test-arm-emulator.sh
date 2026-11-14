@@ -37,7 +37,7 @@ fi
 # adb はテスト失敗時も成功終了する場合があるため、出力も必ず検証する。
 set +e
 adb shell am instrument -w -r \
-    -e class 'app.gamenative.ArmNativeBridgeSmokeTest,app.gamenative.VulkanProbeSmokeTest,app.gamenative.GraphicsDeviceSmokeTest,com.winlator.renderer.TextureFilterOptimizationTest,com.winlator.renderer.EffectBufferAllocationTest,com.winlator.renderer.FramebufferCopyReuseTest,app.gamenative.DiagnosticLogTest,app.gamenative.ChunkedAssetFileTest,app.gamenative.CompressedAssetProxyTest' \
+    -e class 'app.gamenative.ArmNativeBridgeSmokeTest,app.gamenative.VulkanProbeSmokeTest,app.gamenative.GraphicsDeviceSmokeTest,com.winlator.renderer.TextureFilterOptimizationTest,com.winlator.renderer.EffectBufferAllocationTest,com.winlator.renderer.FramebufferCopyReuseTest,app.gamenative.DiagnosticLogTest,app.gamenative.ChunkedAssetFileTest,app.gamenative.CompressedAssetProxyTest,app.gamenative.LibraryImageCacheTest' \
     app.gamenative.test/androidx.test.runner.AndroidJUnitRunner 2>&1 | tr -d '\r' | tee emulator-results/instrumentation.txt
 status=${PIPESTATUS[0]}
 set -e
@@ -47,7 +47,7 @@ adb logcat -d -s 'CompressedProxyTest:I' '*:S' > emulator-results/compressed-pro
 cat emulator-results/compressed-proxy-log.txt
 proxy_detail=$(tail -n 8 emulator-results/compressed-proxy-log.txt | sed -e 's/%/%25/g' | awk '{printf "%s%%0A", $0}')
 echo "::notice::圧縮 FD 子プロセス試験（未対応の場合は未接続）%0A$proxy_detail"
-if (( status != 0 )) || ! grep -Eq '^OK \(9 tests?\)' emulator-results/instrumentation.txt; then
+if (( status != 0 )) || ! grep -Eq '^OK \(10 tests?\)' emulator-results/instrumentation.txt; then
     details=$(tail -n 60 emulator-results/instrumentation.txt | sed -e 's/%/%25/g' | awk '{printf "%s%%0A", $0}')
     echo "::error::テストに失敗しました。%0A$details"
     exit 1
