@@ -1,0 +1,48 @@
+name: Direct3D 描画の予備比較
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'tools/graphics-benchmark/**'
+      - '.github/workflows/dxvk-wined3d-benchmark.yml'
+permissions:
+  contents: read
+jobs:
+  compare:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v6
+      - name: ソフトウェア描画と Wine を用意
+        run: |
+          sudo apt-get update
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y wine wine64 g++-mingw-w64-x86-64 xvfb xauth mesa-utils mesa-vulkan-drivers vulkan-tools
+      - name: DXVK 2.6.1 を取得
+        run: |
+          curl --fail --location --retry 3 -o "$RUNNER_TEMP/dxvk-2.6.1.tar.gz" https://github.com/doitsujin/dxvk/releases/download/v2.6.1/dxvk-2.6.1.tar.gz
+          sha256sum "$RUNNER_TEMP/dxvk-2.6.1.tar.gz"
+      - name: 描画と 4 回の比較
+        run: |
+          set +e
+          xvfb-run -a -s '-screen 0 1024x768x24' bash tools/graphics-benchmark/run-linux-software.sh "$RUNNER_TEMP/graphics-compare" "$RUNNER_TEMP/dxvk-2.6.1.tar.gz" 2>&1 | tee "$RUNNER_TEMP/graphics-log.txt"
+          status=${PIPESTATUS[0]}
+          set -e
+          if [[ -f "$RUNNER_TEMP/graphics-compare/summary.txt" ]]; then
+            summary=$(sed 's/%/%25/g' "$RUNNER_TEMP/graphics-compare/summary.txt" | awk '{printf "%s%%0A", $0}')
+            echo "::notice::予備試験結果%0A$summary"
+          fi
+          if (( status != 0 )); then
+            details=$(tail -n 35 "$RUNNER_TEMP/graphics-log.txt" | sed 's/%/%25/g' | awk '{printf "%s%%0A", $0}')
+            echo "::error::比較失敗%0A$details"
+          fi
+          exit "$status"
+      - uses: actions/upload-artifact@v4
+        if: ${{ always() }}
+        with:
+          name: direct3d-software-comparison
+          path: |
+            ${{ runner.temp }}/graphics-log.txt
+            ${{ runner.temp }}/graphics-compare/*.txt
+            ${{ runner.temp }}/graphics-compare/*.csv
+          if-no-files-found: warn
+          retention-days: 14
