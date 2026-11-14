@@ -34,46 +34,53 @@ for backend in wined3d dxvk; do
         export WINEDLLOVERRIDES='d3d9,d3d11,dxgi=b;winemenubuilder.exe=d;mscoree,mshtml='
     fi
     # ロードされた DLL と初回動作をログで確認する。計測からは除外。
-    (cd "$out/$backend"; WINEDEBUG=+loaddll timeout 120 wine ./gn-d3d.exe d3d9) > "$out/$backend-load.txt" 2>&1
+    (cd "$out/$backend"; WINEDEBUG=+loaddll timeout 120 wine ./gn-d3d.exe d3d9 baseline) > "$out/$backend-load.txt" 2>&1
     grep -iE 'd3d9\.dll.*(native|builtin)' "$out/$backend-load.txt" | tail -3 || { echo "$backend の DLL ロード情報を確認できません" >&2; exit 1; }
     if [[ $backend == dxvk ]]; then kind=native; else kind=builtin; fi
     grep -iE "d3d9\\.dll.*$kind" "$out/$backend-load.txt" >/dev/null || { echo "$backend の d3d9 DLL が期待した種類ではありません" >&2; exit 1; }
-    (cd "$out/$backend"; WINEDEBUG=+loaddll timeout 120 wine ./gn-d3d.exe d3d11) > "$out/$backend-load11.txt" 2>&1 || { tail -n 30 "$out/$backend-load11.txt"; exit 1; }
+    (cd "$out/$backend"; WINEDEBUG=+loaddll timeout 120 wine ./gn-d3d.exe d3d11 baseline) > "$out/$backend-load11.txt" 2>&1 || { tail -n 30 "$out/$backend-load11.txt"; exit 1; }
     for dll in d3d11 dxgi; do
         grep -iE "$dll\.dll.*$kind" "$out/$backend-load11.txt" | tail -1 || { echo "$backend の $dll DLL が期待した種類ではありません" >&2; exit 1; }
     done
     timeout 30 wineserver -w
  done
-printf 'api,round,backend,seconds,fps\n' > "$out/results.csv"
+printf 'api,workload,round,backend,seconds,fps,peak_rss_kib\n' > "$out/results.csv"
 for api in d3d9 d3d11; do
-    for round in 1 2 3 4; do
-        for backend in dxvk wined3d; do
-            export WINEPREFIX="$out/prefix-$backend"
-            if [[ $backend == dxvk ]]; then
-                export WINEDLLOVERRIDES='d3d9,d3d11,dxgi=n;winemenubuilder.exe=d;mscoree,mshtml='
-            else
-                export WINEDLLOVERRIDES='d3d9,d3d11,dxgi=b;winemenubuilder.exe=d;mscoree,mshtml='
-            fi
-            log="$out/$api-$round-$backend.txt"
-            (cd "$out/$backend"; timeout 120 wine ./gn-d3d.exe "$api") > "$log" 2>&1 || { cat "$log"; echo "$api $backend $round 失敗" >&2; exit 1; }
-            cat "$log"
-            result=$(grep -E '^RESULT api=' "$log" | tr -d '\r')
-            [[ $result == "RESULT api=$api frames=180 "*'pixel=ok'* ]] || { echo '出力またはピクセル確認が不正です' >&2; exit 1; }
-            sec=$(sed -n 's/.* seconds=\([0-9.]*\).*/\1/p' <<< "$result")
-            fps=$(sed -n 's/.* fps=\([0-9.]*\).*/\1/p' <<< "$result")
-            [[ -n $sec && -n $fps ]] || exit 1
-            printf '%s,%s,%s,%s,%s\n' "$api" "$round" "$backend" "$sec" "$fps" >> "$out/results.csv"
-            timeout 30 wineserver -w
+    for workload in baseline calls resolution texture; do
+        for round in 1 2 3 4; do
+            # 同じ順番が続く偏りを抑える。各方式で各4回。
+            if (( round % 2 )); then order=(dxvk wined3d); else order=(wined3d dxvk); fi
+            for backend in "${order[@]}"; do
+                export WINEPREFIX="$out/prefix-$backend"
+                if [[ $backend == dxvk ]]; then
+                    export WINEDLLOVERRIDES='d3d9,d3d11,dxgi=n;winemenubuilder.exe=d;mscoree,mshtml='
+                else
+                    export WINEDLLOVERRIDES='d3d9,d3d11,dxgi=b;winemenubuilder.exe=d;mscoree,mshtml='
+                fi
+                log="$out/$api-$workload-$round-$backend.txt"
+                rss="$out/$api-$workload-$round-$backend-rss.txt"
+                (cd "$out/$backend"; /usr/bin/time -f '%M' -o "$rss" timeout 120 wine ./gn-d3d.exe "$api" "$workload") > "$log" 2>&1 || { tail -n 40 "$log"; echo "$api $workload $backend $round 失敗" >&2; exit 1; }
+                result=$(grep -E '^RESULT api=' "$log" | tr -d '\r')
+                [[ $result == "RESULT api=$api frames=180 "*'pixel=ok'* ]] || { echo '出力またはピクセル確認が不正です' >&2; exit 1; }
+                sec=$(sed -n 's/.* seconds=\([0-9.]*\).*/\1/p' <<< "$result")
+                fps=$(sed -n 's/.* fps=\([0-9.]*\).*/\1/p' <<< "$result")
+                peak=$(cat "$rss")
+                [[ -n $sec && -n $fps && $peak =~ ^[0-9]+$ ]] || exit 1
+                printf '%s,%s,%s,%s,%s,%s,%s\n' "$api" "$workload" "$round" "$backend" "$sec" "$fps" "$peak" >> "$out/results.csv"
+                timeout 30 wineserver -w
+            done
         done
     done
 done
-python3 - "$out/results.csv" <<'PY' | tee "$out/summary.txt"
+python3 - "$out/results.csv" <<'PY2' | tee "$out/summary.txt"
 import csv,statistics,sys
 r=list(csv.DictReader(open(sys.argv[1])))
 for api in ('d3d9','d3d11'):
- for backend in ('dxvk','wined3d'):
-  a=[float(x['fps']) for x in r if x['api']==api and x['backend']==backend]
-  if len(a)!=4: raise SystemExit('4回の測定が揃っていません')
-  print(f'{api} {backend}: 各回 FPS {a}, 平均 {statistics.mean(a):.3f}, 範囲 {min(a):.3f}–{max(a):.3f}')
-print('x86_64 Linux ソフトウェア描画の合成試験。Android 実機・ゲーム性能ではない。')
-PY
+ for workload in ('baseline','calls','resolution','texture'):
+  for backend in ('dxvk','wined3d'):
+   subset=[x for x in r if x['api']==api and x['workload']==workload and x['backend']==backend]
+   if len(subset)!=4: raise SystemExit('4回の測定が揃っていません')
+   fps=[float(x['fps']) for x in subset]; rss=[int(x['peak_rss_kib']) for x in subset]
+   print(f"{api} {workload} {backend}: FPS {fps} 平均 {statistics.mean(fps):.3f}; 最大RSS KiB {rss} 平均 {statistics.mean(rss):.0f}")
+print('x86_64 Linux ソフトウェア描画の合成試験。最大RSSはGPU共有メモリや全プロセス合計ではない。')
+PY2
