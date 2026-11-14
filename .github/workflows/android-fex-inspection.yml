@@ -48,11 +48,11 @@ jobs:
           import os
           from pathlib import Path
           root = Path(os.environ['RUNNER_TEMP']) / 'fexpacks'
-          for name in ('archive-sha256.txt', 'report.txt'):
-              path = root / name
-              if path.exists():
-                  text = path.read_text(errors='replace')[-25000:]
-                  print('::notice::' + name + '%0A' + text.replace('%', '%25').replace('\r', '%0D').replace('\n', '%0A'))
+          path = root / 'report.txt'
+          if path.exists():
+              for part in path.read_text(errors='replace').split('パック: ')[1:]:
+                  text = 'パック: ' + part.strip()
+                  print('::notice::' + text.replace('%', '%25').replace('\r', '%0D').replace('\n', '%0A'))
           PY
       - uses: actions/upload-artifact@v4
         if: always()
