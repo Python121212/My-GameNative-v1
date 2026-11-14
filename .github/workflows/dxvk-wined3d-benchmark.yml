@@ -16,15 +16,23 @@ jobs:
       - name: ソフトウェア描画と Wine を用意
         run: |
           sudo apt-get update
-          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y wine wine64 g++-mingw-w64-x86-64 xvfb xauth mesa-utils mesa-vulkan-drivers vulkan-tools
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y wine wine64 g++-mingw-w64-x86-64 xserver-xorg-core xserver-xorg-video-dummy x11-utils x11-xserver-utils mesa-utils mesa-vulkan-drivers vulkan-tools
       - name: DXVK 2.6.1 を取得
         run: |
           curl --fail --location --retry 3 -o "$RUNNER_TEMP/dxvk-2.6.1.tar.gz" https://github.com/doitsujin/dxvk/releases/download/v2.6.1/dxvk-2.6.1.tar.gz
           sha256sum "$RUNNER_TEMP/dxvk-2.6.1.tar.gz"
       - name: 描画と 4 回の比較
         run: |
+          set -e
+          sudo Xorg :99 -noreset -nolisten tcp -config "$GITHUB_WORKSPACE/tools/graphics-benchmark/xorg-dummy.conf" -logfile "$RUNNER_TEMP/xorg.log" >"$RUNNER_TEMP/xorg-stdout.txt" 2>&1 &
+          xpid=$!
+          trap 'sudo kill "$xpid" 2>/dev/null || true' EXIT
+          export DISPLAY=:99
+          for i in {1..30}; do xdpyinfo >/dev/null 2>&1 && break; sleep 1; done
+          xdpyinfo >/dev/null
+          xrandr --verbose
           set +e
-          xvfb-run -a -s '-screen 0 1024x768x24' bash tools/graphics-benchmark/run-linux-software.sh "$RUNNER_TEMP/graphics-compare" "$RUNNER_TEMP/dxvk-2.6.1.tar.gz" 2>&1 | tee "$RUNNER_TEMP/graphics-log.txt"
+          bash tools/graphics-benchmark/run-linux-software.sh "$RUNNER_TEMP/graphics-compare" "$RUNNER_TEMP/dxvk-2.6.1.tar.gz" 2>&1 | tee "$RUNNER_TEMP/graphics-log.txt"
           status=${PIPESTATUS[0]}
           set -e
           if [[ -f "$RUNNER_TEMP/graphics-compare/summary.txt" ]]; then
@@ -41,6 +49,8 @@ jobs:
         with:
           name: direct3d-software-comparison
           path: |
+            ${{ runner.temp }}/xorg*.txt
+            ${{ runner.temp }}/xorg.log
             ${{ runner.temp }}/graphics-log.txt
             ${{ runner.temp }}/graphics-compare/*.txt
             ${{ runner.temp }}/graphics-compare/*.csv
