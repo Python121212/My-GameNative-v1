@@ -654,12 +654,10 @@ class MainActivity : ComponentActivity() {
         // enable auto-stop behavior if backgrounded
         SteamService.autoStopWhenIdle = true
 
-        // Library UI is no longer visible (e.g. a game is now in the foreground) —
-        // drop the cover-art bitmap cache so its GPU memory is reclaimed for the game.
-        // Not on a config change (rotation), where we want to keep it warm.
-        if (!isChangingConfigurations && hasReadyGameLifecycleState("stop")) {
-            releaseImageCaches()
-        }
+        // Once this UI is stopped its cover cache is expendable, even if the game
+        // environment is not ready or another app is in front. Active views and
+        // the disk cache are untouched; rotation keeps the existing behavior.
+        app.gamenative.utils.LibraryImageCache.onActivityStopped(appImageLoader, isChangingConfigurations)
 
         Timber.d(
             "onStop - Index: %d, Connected: %b, Logged-In: %b, Changing-Config: %b, Keep Alive: %b, Is Importing: %b",
