@@ -30,10 +30,16 @@ jobs:
           touch local.properties
           set -o pipefail
           set +e
-          ./gradlew :app:assembleModernDebug :app:assembleModernDebugAndroidTest :app:assembleModernRelease \
+          ./gradlew :app:assembleModernDebug :app:assembleModernDebugAndroidTest \
             --no-daemon --max-workers=2 -Dorg.gradle.jvmargs='-Xmx3g -Dfile.encoding=UTF-8' \
             -Pkotlin.daemon.jvmargs=-Xmx5g 2>&1 | tee "$RUNNER_TEMP/build.log"
           status=${PIPESTATUS[0]}
+          if (( status == 0 )); then
+            ./gradlew :app:assembleModernRelease --no-daemon --max-workers=2 \
+              -Dorg.gradle.jvmargs='-Xmx5g -Dfile.encoding=UTF-8' \
+              -Pkotlin.daemon.jvmargs=-Xmx5g 2>&1 | tee -a "$RUNNER_TEMP/build.log"
+            status=${PIPESTATUS[0]}
+          fi
           set -e
           if (( status != 0 )); then
             details=$(tail -n 100 "$RUNNER_TEMP/build.log" | sed 's/%/%25/g' | awk '{printf "%s%%0A", $0}')
