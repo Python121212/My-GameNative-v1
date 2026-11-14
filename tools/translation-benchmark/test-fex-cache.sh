@@ -8,8 +8,6 @@ chmod 700 "$out/runtime"
 out="$(cd "$out" && pwd)"
 export HOME="$out/home" XDG_RUNTIME_DIR="$out/runtime" XDG_CACHE_HOME="$out/cache" XDG_CONFIG_HOME="$out/config"
 export FEX_ENABLECODECACHINGWIP=1
-# 原因切り分け: 複数ブロックの結合を無効にしてキャッシュを比較する。
-export FEX_MULTIBLOCK=0
 x86_64-linux-gnu-as tools/translation-benchmark/hello-x86_64.s -o "$out/hello.o"
 x86_64-linux-gnu-ld -o "$out/hello-x86_64" "$out/hello.o"
 command -v FEX | tee "$out/fex-binary.txt"
