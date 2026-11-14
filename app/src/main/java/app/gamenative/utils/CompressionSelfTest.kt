@@ -28,8 +28,16 @@ object CompressionSelfTest {
                 val offset = ChunkedAssetFile.BLOCK_SIZE - 13
                 check(reader.read(offset.toLong(), 64).contentEquals(data.copyOfRange(offset, offset + 64)))
             }
+            val proxyResult = runCatching {
+                CompressedAssetProxy.open(context, packed).use { proxy ->
+                    val dataRead = ByteArray(64)
+                    val offset = ChunkedAssetFile.BLOCK_SIZE - 13
+                    check(android.system.Os.pread(proxy.descriptor.fileDescriptor, dataRead, 0, dataRead.size, offset.toLong()) == dataRead.size)
+                    check(dataRead.contentEquals(data.copyOfRange(offset, offset + dataRead.size)))
+                }
+            }.fold({ "Android の FD 経由の部分読み込みに成功" }, { "Android の FD 経由の試験は失敗または利用不可" })
             val ms = (System.nanoTime() - start) / 1_000_000
-            return "自動生成データ: ${data.size} バイト → ${packed.length()} バイト。50回の部分読み込みと境界を照合、処理時間 ${ms} ms。ゲームの圧縮率や性能ではありません。"
+            return "自動生成データ: ${data.size} バイト → ${packed.length()} バイト。50回の部分読み込みと境界を照合。$proxyResult。処理時間 ${ms} ms。実ゲームの接続・圧縮率や性能は未確認です。"
         } finally {
             // この関数で新規作成した試験用ディレクトリのみ。
             base.deleteRecursively()

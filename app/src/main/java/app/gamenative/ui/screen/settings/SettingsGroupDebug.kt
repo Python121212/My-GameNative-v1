@@ -41,6 +41,7 @@ import kotlinx.coroutines.withContext
 import kotlinx.coroutines.launch
 import app.gamenative.utils.DiagnosticLog
 import app.gamenative.utils.CompressionSelfTest
+import app.gamenative.utils.MemoryStatus
 import java.io.File
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.json.Json
@@ -184,6 +185,15 @@ fun SettingsGroupDebug() {
     }
 
     val diagnosticScope = rememberCoroutineScope()
+    var memoryResult by remember { mutableStateOf<String?>(null) }
+    if (memoryResult != null) {
+        AlertDialog(
+            onDismissRequest = { memoryResult = null },
+            title = { Text(stringResource(R.string.memory_probe_title)) },
+            text = { Text(memoryResult.orEmpty()) },
+            confirmButton = { TextButton(onClick = { memoryResult = null }) { Text(stringResource(R.string.compression_trial_close)) } },
+        )
+    }
     var compressionBusy by remember { mutableStateOf(false) }
     var compressionResult by remember { mutableStateOf<String?>(null) }
     if (compressionResult != null) {
@@ -223,6 +233,16 @@ fun SettingsGroupDebug() {
     }
 
     SettingsGroup() {
+        SettingsMenuLink(
+            colors = settingsTileColors(),
+            title = { Text(stringResource(R.string.memory_probe_title)) },
+            subtitle = { Text(stringResource(R.string.memory_probe_subtitle)) },
+            onClick = {
+                if (!isPreview) diagnosticScope.launch {
+                    memoryResult = withContext(Dispatchers.IO) { MemoryStatus.read(context) }
+                }
+            },
+        )
         SettingsMenuLink(
             colors = settingsTileColors(),
             title = { Text(stringResource(R.string.compression_trial_title)) },

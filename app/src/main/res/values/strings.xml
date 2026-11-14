@@ -946,6 +946,8 @@
     <string name="force_dlc_description">Only enable if DLCs are not detected or saves with DLC are not working</string>
     <string name="local_saves_only">Local saves only</string>
     <string name="local_saves_only_description">Disable cloud save sync for this game and keep saves on device only</string>
+    <string name="memory_probe_title">メモリ・スワップの状態</string>
+    <string name="memory_probe_subtitle">現在の状態を読み取り専用で表示。ZRAM の拡張は行いません。</string>
     <string name="compression_trial_title">圧縮と部分読み込みの試験</string>
     <string name="compression_trial_subtitle">自動生成データのみで試験。ゲームは圧縮・変更しません。</string>
     <string name="compression_trial_busy">試験中…</string>

@@ -643,6 +643,7 @@ class MainActivity : ComponentActivity() {
         // cover-art cache so the running game has more headroom.
         if (level >= ComponentCallbacks2.TRIM_MEMORY_UI_HIDDEN) {
             releaseImageCaches()
+            app.gamenative.utils.ChunkedAssetFile.trimOpenCaches()
         }
     }
 
