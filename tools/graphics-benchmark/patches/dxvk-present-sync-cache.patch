@@ -1,0 +1,28 @@
+diff --git a/src/d3d9/d3d9_swapchain.cpp b/src/d3d9/d3d9_swapchain.cpp
+index f58b2e6..bc2256f 100644
+--- a/src/d3d9/d3d9_swapchain.cpp
++++ b/src/d3d9/d3d9_swapchain.cpp
+@@ -155,7 +155,10 @@ namespace dxvk {
+     if (options->deferSurfaceCreation && IsDeviceReset(m_wctx))
+       m_wctx->presenter->invalidateSurface();
+ 
+-    m_wctx->presenter->setSyncInterval(presentInterval);
++    if (m_wctx->lastSyncInterval != presentInterval) {
++      m_wctx->presenter->setSyncInterval(presentInterval);
++      m_wctx->lastSyncInterval = presentInterval;
++    }
+ 
+     UpdatePresentRegion(pSourceRect, pDestRect);
+     UpdatePresentParameters();
+diff --git a/src/d3d9/d3d9_swapchain.h b/src/d3d9/d3d9_swapchain.h
+index c2248da..12f2375 100644
+--- a/src/d3d9/d3d9_swapchain.h
++++ b/src/d3d9/d3d9_swapchain.h
+@@ -57,6 +57,7 @@ namespace dxvk {
+     Rc<sync::Fence>                frameLatencySignal;
+ 
+     uint32_t                       deviceResetCounter = 0u;
++    uint32_t                       lastSyncInterval = ~0u;
+   };
+ 
+   using D3D9SwapChainExBase = D3D9DeviceChild<IDirect3DSwapChain9Ex>;
