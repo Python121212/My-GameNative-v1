@@ -24,6 +24,8 @@ int main() {
     UploadContext ctx(512);
     throws<std::invalid_argument>([&]{ctx.createTexture(0,4);});
     auto a=ctx.createTexture(8,8), b=ctx.createTexture(4,4), uninitialized=ctx.createTexture(1,1);
+    auto bgra=ctx.createTexture(2,2,UploadContext::Format::Bgra8);
+    throws<std::invalid_argument>([&]{ctx.createTexture(1,1,static_cast<UploadContext::Format>(999));});
     throws<std::logic_error>([&]{ctx.readback(uninitialized);});
     throws<std::invalid_argument>([&]{ctx.lock(99,{0,0,1,1});});
     throws<std::invalid_argument>([&]{ctx.lock(a,{7,0,2,1});});
@@ -40,6 +42,9 @@ int main() {
     ctx.submit();
     auto ar=ctx.readback(a), br=ctx.readback(b);
     pixel(ar,8,0,0,11,22,33); pixel(ar,8,2,2,40,50,60); pixel(ar,8,3,3,70,80,90); pixel(ar,8,7,7,11,22,33); pixel(br,4,3,3,90,91,92);
+    // D3DFMT_A8R8G8B8 のメモリ順は B,G,R,A。転送時に色を入れ替えない。
+    fill(ctx,bgra,{0,0,2,2},1,2,250);
+    auto bg=ctx.readback(bgra); pixel(bg,2,1,1,1,2,250);
     // 複数フレームで読み戻し後のレイアウトとフェンスの再利用を確認。
     for(unsigned i=0;i<8;i++) {
         fill(ctx,a,{0,0,8,8},uint8_t(i),23,42); ctx.submit();

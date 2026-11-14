@@ -141,14 +141,21 @@ UploadContext::UploadContext(VkDeviceSize bytes) : impl(std::make_unique<Impl>()
 }
 UploadContext::~UploadContext() = default;
 
-UploadContext::TextureId UploadContext::createTexture(uint32_t w,uint32_t h) {
+UploadContext::TextureId UploadContext::createTexture(uint32_t w,uint32_t h,Format fmt) {
     auto& p=*impl;
     if (!w || !h || w>p.props.limits.maxImageDimension2D || h>p.props.limits.maxImageDimension2D || p.textures.size()>=UINT32_MAX) throw std::invalid_argument("テクスチャサイズが不正です");
-    VkFormatProperties format{}; vkGetPhysicalDeviceFormatProperties(p.physical,VK_FORMAT_R8G8B8A8_UNORM,&format);
-    if ((format.optimalTilingFeatures & (VK_FORMAT_FEATURE_TRANSFER_SRC_BIT | VK_FORMAT_FEATURE_TRANSFER_DST_BIT)) != (VK_FORMAT_FEATURE_TRANSFER_SRC_BIT | VK_FORMAT_FEATURE_TRANSFER_DST_BIT)) throw std::runtime_error("RGBA8 転送に未対応です");
+    VkFormat vkFormat;
+    switch (fmt) {
+    case Format::Rgba8: vkFormat=VK_FORMAT_R8G8B8A8_UNORM; break;
+    case Format::Bgra8: vkFormat=VK_FORMAT_B8G8R8A8_UNORM; break;
+    default: throw std::invalid_argument("未対応の画像形式です");
+    }
+    VkFormatProperties format{}; vkGetPhysicalDeviceFormatProperties(p.physical,vkFormat,&format);
+    const VkFormatFeatureFlags required=VK_FORMAT_FEATURE_TRANSFER_SRC_BIT | VK_FORMAT_FEATURE_TRANSFER_DST_BIT | VK_FORMAT_FEATURE_SAMPLED_IMAGE_BIT;
+    if ((format.optimalTilingFeatures & required) != required) throw std::runtime_error("指定画像形式で必要な転送・サンプリングに未対応です");
     Texture t; t.width=w; t.height=h;
     try {
-        VkImageCreateInfo ci{VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO}; ci.imageType=VK_IMAGE_TYPE_2D; ci.format=VK_FORMAT_R8G8B8A8_UNORM; ci.extent={w,h,1}; ci.mipLevels=1; ci.arrayLayers=1; ci.samples=VK_SAMPLE_COUNT_1_BIT; ci.tiling=VK_IMAGE_TILING_OPTIMAL; ci.usage=VK_IMAGE_USAGE_TRANSFER_DST_BIT|VK_IMAGE_USAGE_TRANSFER_SRC_BIT|VK_IMAGE_USAGE_SAMPLED_BIT; ci.sharingMode=VK_SHARING_MODE_EXCLUSIVE; ci.initialLayout=VK_IMAGE_LAYOUT_UNDEFINED;
+        VkImageCreateInfo ci{VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO}; ci.imageType=VK_IMAGE_TYPE_2D; ci.format=vkFormat; ci.extent={w,h,1}; ci.mipLevels=1; ci.arrayLayers=1; ci.samples=VK_SAMPLE_COUNT_1_BIT; ci.tiling=VK_IMAGE_TILING_OPTIMAL; ci.usage=VK_IMAGE_USAGE_TRANSFER_DST_BIT|VK_IMAGE_USAGE_TRANSFER_SRC_BIT|VK_IMAGE_USAGE_SAMPLED_BIT; ci.sharingMode=VK_SHARING_MODE_EXCLUSIVE; ci.initialLayout=VK_IMAGE_LAYOUT_UNDEFINED;
         check(vkCreateImage(p.device,&ci,nullptr,&t.image),"vkCreateImage");
         VkMemoryRequirements req{}; vkGetImageMemoryRequirements(p.device,t.image,&req);
         VkMemoryAllocateInfo ai{VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO}; ai.allocationSize=req.size; ai.memoryTypeIndex=p.memoryType(req.memoryTypeBits,0,VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
