@@ -22,5 +22,5 @@ for f in repeat.bin noise.bin empty; do
   cmp "$base/input/$f" "$base/squashfs/$f"
 done
 printf '合成データ: %s bytes; EROFS: %s bytes; SquashFS: %s bytes\n' \
-  "$(du -sb "$base/input" | cut -f1)" "$(stat -c %s "$base/test.erofs")" "$(stat -c %s "$base/test.squashfs")"
+  "$(find "$base/input" -type f -printf '%s\n' | awk '{sum += $1} END {printf "%.0f", sum}')" "$(stat -c %s "$base/test.erofs")" "$(stat -c %s "$base/test.squashfs")"
 echo '両形式の展開結果は元データと一致。Linux 上のみ・合成データであり、Android 実行や実ゲーム性能は未検証。'

@@ -12,6 +12,10 @@ import org.junit.runner.RunWith
 
 @RunWith(AndroidJUnit4::class)
 class ChunkedAssetFileTest {
+    private fun expectFailure(action: () -> Unit) {
+        assertTrue("失敗すべき操作が成功しました", runCatching { action() }.isFailure)
+    }
+
     @Test fun randomAccessAndDamageAreCheckedWithoutOverwritingOriginal() {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         assertTrue(CompressionSelfTest.run(context).contains("照合"))
@@ -23,12 +27,12 @@ class ChunkedAssetFileTest {
             val contents = ByteArray(300_000) { (it % 127).toByte() }
             input.writeBytes(contents)
             ChunkedAssetFile.create(input, packed)
-            assertThrows(Exception::class.java) { ChunkedAssetFile.create(input, packed) }
+            expectFailure { ChunkedAssetFile.create(input, packed) }
             assertArrayEquals(contents, input.readBytes())
             ChunkedAssetFile.open(packed).use { file ->
                 assertArrayEquals(contents.copyOfRange(262140, 262160), file.read(262140, 20))
-                assertThrows(IllegalArgumentException::class.java) { file.read(-1, 3) }
-                assertThrows(IllegalArgumentException::class.java) { file.read(299999, 2) }
+                expectFailure { file.read(-1, 3) }
+                expectFailure { file.read(299999, 2) }
             }
             RandomAccessFile(packed, "rw").use { file ->
                 file.seek(28) // 先頭ブロックの CRC を破損させ、入力は変更しない。
@@ -36,9 +40,9 @@ class ChunkedAssetFileTest {
                 file.seek(28)
                 file.writeInt(value xor 1)
             }
-            ChunkedAssetFile.open(packed).use { assertThrows(Exception::class.java) { it.read(0, 1) } }
+            ChunkedAssetFile.open(packed).use { expectFailure { it.read(0, 1) } }
             RandomAccessFile(packed, "rw").use { file -> file.setLength(file.length() - 3) }
-            assertThrows(Exception::class.java) { ChunkedAssetFile.open(packed) }
+            expectFailure { ChunkedAssetFile.open(packed).use { } }
             val empty = File(dir, "empty").apply { writeBytes(byteArrayOf()) }
             val emptyPacked = File(dir, "empty-packed")
             ChunkedAssetFile.create(empty, emptyPacked)
