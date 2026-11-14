@@ -14,7 +14,13 @@ jobs:
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v6
+      - uses: actions/cache/restore@v4
+        id: fex_cache
+        with:
+          path: ${{ runner.temp }}/fex-build/Bin
+          key: fex-2611.1-4f9c1f1e-linux-arm64-clang18-v1
       - name: FEX とコンパイラーを同一ソースからビルド
+        if: steps.fex_cache.outputs.cache-hit != 'true'
         run: |
           mkdir -p "$RUNNER_TEMP/fex-build-logs"
           set +e
@@ -38,6 +44,15 @@ jobs:
             echo "::error::FEX のビルドに失敗%0A$details"
             exit "$status"
           fi
+      - uses: actions/cache/save@v4
+        if: steps.fex_cache.outputs.cache-hit != 'true'
+        with:
+          path: ${{ runner.temp }}/fex-build/Bin
+          key: fex-2611.1-4f9c1f1e-linux-arm64-clang18-v1
+      - name: 検査ツールを準備
+        run: |
+          sudo apt-get update
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y binutils-x86-64-linux-gnu strace
           echo "$RUNNER_TEMP/fex-build/Bin" >> "$GITHUB_PATH"
       - name: 記録とキャッシュ読み込みを検査
         run: |

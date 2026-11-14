@@ -33,7 +33,17 @@ grep -Fx 'translation-smoke-ok' "$out/run-disabled.txt"
 echo '生成後の通常実行を確認'
 timeout 90 FEX "$out/hello-x86_64" 2>&1 | tee "$out/run-cached.txt"
 if ! grep -Fx 'translation-smoke-ok' "$out/run-cached.txt"; then
-    echo 'キャッシュ生成後の通常実行で期待した出力がありません。' >&2
+    echo 'キャッシュ生成後の通常実行で期待した出力がありません。診断を開始します。' >&2
+    set +e
+    FEX_OUTPUTLOG=stderr FEX_ENABLECODECACHEVALIDATION=1 timeout 90 FEX "$out/hello-x86_64" > "$out/validation.txt" 2>&1
+    validation_status=$?
+    echo "FEX キャッシュ照合診断の終了状態: $validation_status"
+    tail -n 30 "$out/validation.txt" || true
+    FEX_OUTPUTLOG=stderr timeout 90 strace -f -yy -e trace=openat,mmap,write,writev,exit,exit_group -o "$out/failure-trace.txt" FEX "$out/hello-x86_64" > "$out/failure-output.txt" 2>&1
+    echo 'キャッシュ有効時の出力とシステムコール（末尾）:'
+    cat "$out/failure-output.txt"
+    tail -n 25 "$out/failure-trace.txt" || true
+    set -e
     exit 1
 fi
 echo 'strace による読み込み追跡を開始'
