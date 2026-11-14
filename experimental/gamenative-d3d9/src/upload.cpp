@@ -113,7 +113,8 @@ struct UploadContext::Impl {
 };
 
 UploadContext::UploadContext(VkDeviceSize bytes) : impl(std::make_unique<Impl>()) {
-    if (bytes < 4) throw std::invalid_argument("ステージング容量が小さすぎます");
+    if (bytes < 4 || bytes > std::numeric_limits<size_t>::max())
+        throw std::invalid_argument("ステージング容量が不正です");
     auto& p=*impl; p.capacity=bytes;
     VkApplicationInfo app{VK_STRUCTURE_TYPE_APPLICATION_INFO}; app.pApplicationName="GameNative 実験転送基盤"; app.apiVersion=VK_API_VERSION_1_0;
     VkInstanceCreateInfo ii{VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO}; ii.pApplicationInfo=&app;
@@ -143,7 +144,9 @@ UploadContext::~UploadContext() = default;
 
 UploadContext::TextureId UploadContext::createTexture(uint32_t w,uint32_t h,Format fmt) {
     auto& p=*impl;
-    if (!w || !h || w>p.props.limits.maxImageDimension2D || h>p.props.limits.maxImageDimension2D || p.textures.size()>=UINT32_MAX) throw std::invalid_argument("テクスチャサイズが不正です");
+    if (!w || !h || w>p.props.limits.maxImageDimension2D || h>p.props.limits.maxImageDimension2D
+        || w>INT32_MAX || h>INT32_MAX || p.textures.size()>=UINT32_MAX)
+        throw std::invalid_argument("テクスチャサイズが不正です");
     VkFormat vkFormat;
     switch (fmt) {
     case Format::Rgba8: vkFormat=VK_FORMAT_R8G8B8A8_UNORM; break;
