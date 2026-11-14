@@ -11,6 +11,9 @@ for test in exit branch; do
     x86_64-linux-gnu-as "tools/translation-benchmark/cache-$test-x86_64.s" -o "$dir/test.o"
     x86_64-linux-gnu-ld -o "$dir/test" "$dir/test.o"
     export HOME="$dir/home" XDG_RUNTIME_DIR="$dir/runtime" XDG_CACHE_HOME="$dir/cache" XDG_CONFIG_HOME="$dir/config"
+    # FEXServer は既定では UID 単位の抽象ソケットを共有するため、
+    # HOME だけでは隔離できない。各試験で別のサーバーを使用する。
+    export FEX_SERVERSOCKETPATH="fex-diag-${GITHUB_RUN_ID:-$$}-${test}"
     export FEX_ENABLECODECACHINGWIP=1
     echo "=== $test: 期待する終了コード 42 ==="
     for phase in record generate disabled cached; do
