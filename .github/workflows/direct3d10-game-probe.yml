@@ -39,6 +39,20 @@ jobs:
             exit 1
           fi
           echo "::notice::ゲーム exe が見つかりました。"
+      - name: 取得ログの診断
+        if: always()
+        run: |
+          python3 - <<'PY'
+          import os
+          from pathlib import Path
+          path = Path(os.environ['RUNNER_TEMP']) / 'download.log'
+          if not path.exists():
+              print('::warning::download.log がありません')
+          else:
+              data = path.read_bytes()[-4000:].decode('utf-8', errors='replace')
+              data = data.replace('%', '%25').replace('\r', '%0D').replace('\n', '%0A')
+              print('::warning::SteamCMD ログ末尾: ' + data)
+          PY
       - uses: actions/upload-artifact@v4
         if: always()
         with:
