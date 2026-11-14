@@ -38,3 +38,28 @@ jobs:
           name: gn-d3d9-vulkan-tests
           path: ${{ runner.temp }}/gn-d3d9-test.log
           if-no-files-found: ignore
+  windows-entry:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+      - name: Windows クロスコンパイラーと Wine を準備
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y g++-mingw-w64-x86-64 wine wine64
+      - name: DLL と ABI テストをビルド
+        run: |
+          set -euo pipefail
+          cd experimental/gamenative-d3d9
+          x86_64-w64-mingw32-g++ -std=c++17 -Wall -Wextra -Werror -O2 -shared -static-libgcc -static-libstdc++ \
+            src/windows/d3d9_entry.cpp src/windows/d3d9.def -o "$RUNNER_TEMP/gn-d3d9-experimental.dll" -ldxguid -lole32
+          x86_64-w64-mingw32-g++ -std=c++17 -Wall -Wextra -Werror -Wno-cast-function-type -O2 -static \
+            tests/d3d9_entry_test.cpp -o "$RUNNER_TEMP/d3d9-entry-test.exe" -ldxguid -lole32
+      - name: Wine で DLL エクスポートと COM の入口を確認
+        run: |
+          set -euo pipefail
+          export WINEPREFIX="$RUNNER_TEMP/gn-entry-prefix" WINEARCH=win64 WINEDEBUG=-all
+          export WINEDLLOVERRIDES='winemenubuilder.exe=d;mscoree,mshtml='
+          cd "$RUNNER_TEMP"
+          timeout 120 wineboot -u
+          timeout 60 wine ./d3d9-entry-test.exe
+          timeout 30 wineserver -w
