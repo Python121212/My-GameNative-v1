@@ -29,17 +29,20 @@ object DiagnosticLog {
     private fun stamp(): String = SimpleDateFormat("yyyy-MM-dd HH:mm:ss XXX", Locale.ROOT).format(Date())
     private fun root(context: Context) = File(context.filesDir, "diagnostic-records")
 
-    @Synchronized fun start(context: Context) {
-        if (!enabled(context)) return
+    @Synchronized fun start(context: Context): String? {
+        if (!enabled(context) || session != null) return null
         try {
             val parent = root(context)
-            if (!parent.exists() && !parent.mkdirs()) return
+            if (!parent.exists() && !parent.mkdirs()) return null
+            // 既存の記録を勝手に消さず、上限到達時は新規記録を開始しない。
+            if ((parent.listFiles()?.count { it.isDirectory && it.name.startsWith("session-") } ?: 0) >= 20) return null
             val dir = File(parent, "session-${System.currentTimeMillis()}-${java.util.UUID.randomUUID()}")
-            if (!dir.mkdir()) return
+            if (!dir.mkdir()) return null
             session = dir
             names.forEach { append(it, "記録開始") }
             append("launch.txt", "ゲーム画面を開きました。ゲームの起動成功は未確認")
-        } catch (_: Exception) { session = null }
+            return dir.name
+        } catch (_: Exception) { session = null; return null }
     }
 
     @Synchronized private fun append(name: String, message: String) {
@@ -86,9 +89,17 @@ object DiagnosticLog {
         } catch (_: Exception) { append("network.txt", "Androidの接続=取得不可") }
     }
 
-    @Synchronized fun stop() {
+    @Synchronized fun stop(sessionId: String) {
+        if (session?.name != sessionId) return
         append("launch.txt", "ゲーム画面の記録終了。正常終了を保証しません")
         session = null
+    }
+
+    /** 自分の診断記録のみを削除。ゲームファイルや他のログには触れない。 */
+    @Synchronized fun deleteRecords(context: Context): Boolean {
+        if (session != null) return false
+        val parent = root(context)
+        return !parent.exists() || parent.deleteRecursively()
     }
 
     /** 最新セッションの4種類のみを出力。外部への送信はしない。 */

@@ -6,6 +6,8 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.material3.Text
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -181,6 +183,22 @@ fun SettingsGroupDebug() {
     }
 
     val diagnosticScope = rememberCoroutineScope()
+    var confirmDeleteDiagnostics by remember { mutableStateOf(false) }
+    if (confirmDeleteDiagnostics) {
+        AlertDialog(
+            onDismissRequest = { confirmDeleteDiagnostics = false },
+            title = { Text(stringResource(R.string.diagnostic_delete_title)) },
+            text = { Text(stringResource(R.string.diagnostic_delete_confirm)) },
+            confirmButton = { TextButton(onClick = {
+                confirmDeleteDiagnostics = false
+                diagnosticScope.launch {
+                    val deleted = withContext(Dispatchers.IO) { runCatching { DiagnosticLog.deleteRecords(context) }.getOrDefault(false) }
+                    SnackbarManager.show(context.getString(if (deleted) R.string.diagnostic_delete_ok else R.string.diagnostic_delete_failed))
+                }
+            }) { Text(stringResource(R.string.diagnostic_delete_action)) } },
+            dismissButton = { TextButton(onClick = { confirmDeleteDiagnostics = false }) { Text(stringResource(R.string.diagnostic_cancel)) } },
+        )
+    }
     var diagnosticEnabled by remember { mutableStateOf(!isPreview && DiagnosticLog.enabled(context)) }
     val diagnosticExport = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/zip")) { uri ->
         if (uri != null) diagnosticScope.launch {
@@ -209,6 +227,12 @@ fun SettingsGroupDebug() {
             title = { Text(stringResource(R.string.diagnostic_export_title)) },
             subtitle = { Text(stringResource(R.string.diagnostic_export_subtitle)) },
             onClick = { diagnosticExport.launch("gamenative-diagnostics.zip") },
+        )
+        SettingsMenuLink(
+            colors = settingsTileColors(),
+            title = { Text(stringResource(R.string.diagnostic_delete_title)) },
+            subtitle = { Text(stringResource(R.string.diagnostic_delete_subtitle)) },
+            onClick = { confirmDeleteDiagnostics = true },
         )
         SettingsMenuLink(
             colors = settingsTileColors(),

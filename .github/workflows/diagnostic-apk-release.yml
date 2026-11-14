@@ -1,0 +1,88 @@
+name: 記録ログ付き APK の検査と候補公開
+on:
+  push:
+    branches: ['arena/4f65cb7d-my-gamenative-v1']
+    paths:
+      - '.github/workflows/diagnostic-apk-release.yml'
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  build-and-test:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Android SDK を準備
+        run: |
+          sdkmanager="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          yes | "$sdkmanager" --licenses >/dev/null || true
+          "$sdkmanager" 'platforms;android-36' 'build-tools;35.0.0' 'ndk;27.3.13750724'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: false
+      - name: debug と release 候補をビルド
+        run: |
+          touch local.properties
+          set -o pipefail
+          ./gradlew :app:assembleModernDebug :app:assembleModernDebugAndroidTest :app:assembleModernRelease \
+            --no-daemon --max-workers=2 -Dorg.gradle.jvmargs='-Xmx3g -Dfile.encoding=UTF-8' \
+            -Pkotlin.daemon.jvmargs=-Xmx5g 2>&1 | tee "$RUNNER_TEMP/build.log"
+      - name: KVM の確認
+        id: kvm
+        run: |
+          if [ -e /dev/kvm ]; then sudo chmod a+rw /dev/kvm; fi
+          if [ -r /dev/kvm ] && [ -w /dev/kvm ]; then echo 'disable=false' >> "$GITHUB_OUTPUT"; else echo 'disable=true' >> "$GITHUB_OUTPUT"; fi
+      - name: ログと描画、両 APK の起動を確認
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          profile: pixel_5
+          ram-size: 4096M
+          disk-size: 8G
+          emulator-boot-timeout: 1800
+          disable-linux-hw-accel: ${{ steps.kvm.outputs.disable }}
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -camera-back none -camera-front none
+          script: bash tools/test-arm-emulator.sh && bash tools/test-release-apk.sh
+      - name: 結果を保存
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: diagnostic-apk-test-results
+          path: |
+            emulator-results/*.txt
+            ${{ runner.temp }}/build.log
+          if-no-files-found: ignore
+          retention-days: 14
+      - name: 検査済みの2種類の APK を試験公開
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          sha256sum --check emulator-results/tested-apk-sha256.txt
+          sha256sum --check emulator-results/release-apk-sha256.txt
+          mkdir -p release-files
+          cp app/build/outputs/apk/modern/debug/*.apk release-files/gamenative-modern-debug.apk
+          cp app/build/outputs/apk/modern/release/*.apk release-files/gamenative-modern-release-candidate.apk
+          sha256sum release-files/*.apk > release-files/SHA256SUMS.txt
+          for apk in release-files/*.apk; do
+            "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose --print-certs "$apk" >> release-files/signatures.txt
+          done
+          {
+            echo '# 記録ログ付き APK（試験版と release 候補）'
+            echo
+            echo "コミット: $GITHUB_SHA"
+            echo "試験: https://github.com/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+            echo '両 APK は同一実行で生成された Android debug 署名です。既存アプリと署名が違う場合は上書きできません。データを失わないため、アンインストールやデータ消去はしないでください。'
+            echo 'debug APK で ARM bridge 上の7件のテスト・基本描画・60秒起動を確認。release 候補は同エミュレーターで前面表示と60秒起動のみ確認。release 候補のログ機能、ゲーム、Steam、マルチプレイ、Pixel 9a 実機は未検証であり、安定版として保証できません。'
+            echo '設定のデバッグから記録を有効にし、次のゲーム画面で収集。最新セッションを ZIP に保存できます。温度はバッテリー温度、FPS は表示フレームの推定値、通信は Android の接続状態です。'
+          } > release-files/説明.txt
+          gh release create "diagnostics-${GITHUB_RUN_ID}" release-files/* \
+            --target "$GITHUB_SHA" --prerelease --title "GameNative ログ機能 試験版・release候補 (${GITHUB_RUN_ID})" \
+            --notes-file release-files/説明.txt

@@ -16,7 +16,7 @@ import kotlinx.coroutines.withContext
 internal fun DiagnosticSession(context: Context, sessionKey: String, rating: () -> FrameRating?) {
     LaunchedEffect(sessionKey) {
         if (!DiagnosticLog.enabled(context)) return@LaunchedEffect
-        withContext(Dispatchers.IO) { DiagnosticLog.start(context) }
+        val sessionId = withContext(Dispatchers.IO) { DiagnosticLog.start(context) } ?: return@LaunchedEffect
         var previousFrames: Long? = null
         try {
             while (isActive) {
@@ -28,7 +28,7 @@ internal fun DiagnosticSession(context: Context, sessionKey: String, rating: () 
                 delay(5000)
             }
         } finally {
-            withContext(NonCancellable + Dispatchers.IO) { DiagnosticLog.stop() }
+            withContext(NonCancellable + Dispatchers.IO) { DiagnosticLog.stop(sessionId) }
         }
     }
 }

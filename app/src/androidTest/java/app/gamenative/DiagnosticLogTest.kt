@@ -19,16 +19,19 @@ class DiagnosticLogTest {
         assertTrue(base.mkdirs())
         val context = object : ContextWrapper(original) { override fun getFilesDir(): File = base }
         val old = DiagnosticLog.enabled(context)
+        var sessionId: String? = null
         try {
             DiagnosticLog.setEnabled(context, false)
             DiagnosticLog.start(context)
             val empty = ByteArrayOutputStream()
             assertFalse(DiagnosticLog.exportLatest(context, empty))
             DiagnosticLog.setEnabled(context, true)
-            DiagnosticLog.start(context)
+            sessionId = DiagnosticLog.start(context)
+            assertNotNull(sessionId)
+            assertFalse(DiagnosticLog.deleteRecords(context))
             DiagnosticLog.sample(context, 42.5f)
             DiagnosticLog.event(DiagnosticLog.LaunchEvent.ENV_READY)
-            DiagnosticLog.stop()
+            DiagnosticLog.stop(sessionId!!)
             val bytes = ByteArrayOutputStream()
             assertTrue(DiagnosticLog.exportLatest(context, bytes))
             val entries = mutableMapOf<String, String>()
@@ -47,8 +50,10 @@ class DiagnosticLogTest {
             assertTrue(entries.getValue("fps.txt").contains("42.5"))
             assertTrue(entries.getValue("launch.txt").contains("起動環境の初期化完了"))
             assertFalse(entries.getValue("network.txt").contains("http"))
+            assertTrue(DiagnosticLog.deleteRecords(context))
+            assertFalse(DiagnosticLog.exportLatest(context, ByteArrayOutputStream()))
         } finally {
-            DiagnosticLog.stop()
+            sessionId?.let { DiagnosticLog.stop(it) }
             DiagnosticLog.setEnabled(context, old)
             base.deleteRecursively()
         }
