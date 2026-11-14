@@ -946,6 +946,12 @@
     <string name="force_dlc_description">Only enable if DLCs are not detected or saves with DLC are not working</string>
     <string name="local_saves_only">Local saves only</string>
     <string name="local_saves_only_description">Disable cloud save sync for this game and keep saves on device only</string>
+    <string name="diagnostic_logging_title">ゲーム記録ログ</string>
+    <string name="diagnostic_logging_subtitle">次回ゲーム画面から温度・表示FPS・通信状態・起動を記録。初期設定はオフです。</string>
+    <string name="diagnostic_export_title">最新の記録ログを保存</string>
+    <string name="diagnostic_export_subtitle">4種類のログをZIPで保存します。共有前に内容を確認してください。</string>
+    <string name="diagnostic_export_ok">記録ログを保存しました</string>
+    <string name="diagnostic_export_failed">記録ログがないか、保存できませんでした</string>
     <string name="launch_steam_client_beta">Launch Steam Client</string>
     <string name="launch_steam_client_description">Headless is recommended\nRequired for EA, Rockstar, Ubisoft and other launchers\nEnables multiplayer and fixes DRM and controller issues</string>
     <string name="steam_starting">Starting Steam…</string>
