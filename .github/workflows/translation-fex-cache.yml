@@ -63,6 +63,10 @@ jobs:
           status=${PIPESTATUS[0]}
           set -e
           if (( status != 0 )); then
+            if [[ -f "$RUNNER_TEMP/fex-cache-test/diagnostics/summary.txt" ]]; then
+              summary=$(sed 's/%/%25/g' "$RUNNER_TEMP/fex-cache-test/diagnostics/summary.txt" | awk '{printf "%s%%0A", $0}')
+              echo "::notice::FEX 追加診断%0A$summary"
+            fi
             details=$(tail -n 50 "$RUNNER_TEMP/fex-cache-test-log.txt" | sed 's/%/%25/g' | awk '{printf "%s%%0A", $0}')
             echo "::error::Linux FEX キャッシュ検査失敗%0A$details"
             exit "$status"
