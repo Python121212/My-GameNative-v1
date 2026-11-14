@@ -1,0 +1,83 @@
+name: Linux FEX キャッシュの検査
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'tools/translation-benchmark/test-fex-cache.sh'
+      - 'tools/translation-benchmark/hello-x86_64.s'
+      - 'tools/translation-benchmark/cache-*-x86_64.s'
+      - 'tools/translation-benchmark/diagnose-fex-cache.sh'
+      - '.github/workflows/translation-fex-cache.yml'
+permissions:
+  contents: read
+jobs:
+  cache-test:
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/cache/restore@v4
+        id: fex_cache
+        with:
+          path: ${{ runner.temp }}/fex-build/Bin
+          key: fex-2611.1-4f9c1f1e-linux-arm64-clang18-v1
+      - name: FEX とコンパイラーを同一ソースからビルド
+        if: steps.fex_cache.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p "$RUNNER_TEMP/fex-build-logs"
+          set +e
+          bash -e -o pipefail -c '
+            test "$(uname -m)" = aarch64
+            sudo apt-get update
+            sudo DEBIAN_FRONTEND=noninteractive apt-get install -y clang cmake ninja-build binutils-x86-64-linux-gnu strace
+            git clone --depth 1 --branch FEX-2611.1 https://github.com/FEX-Emu/FEX.git "$RUNNER_TEMP/fex-source"
+            test "$(git -C "$RUNNER_TEMP/fex-source" rev-parse HEAD)" = 4f9c1f1e36443d22d7655477e34f51b95b685bf1
+            git -C "$RUNNER_TEMP/fex-source" submodule update --init --depth 1 External/unordered_dense External/xxhash External/fmt External/range-v3 External/drm-headers External/rpmalloc Source/Common/cpp-optparse
+            CC=clang CXX=clang++ cmake -S "$RUNNER_TEMP/fex-source" -B "$RUNNER_TEMP/fex-build" -G Ninja \
+              -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=OFF -DBUILD_FEXCONFIG=OFF -DBUILD_THUNKS=OFF \
+              -DENABLE_LTO=OFF -DENABLE_FEX_ALLOCATOR=ON -DENABLE_JEMALLOC_GLIBC_ALLOC=OFF
+            cmake --build "$RUNNER_TEMP/fex-build" --target FEX FEXServer FEXOfflineCompiler -j 3
+            ls -la "$RUNNER_TEMP/fex-build/Bin"
+          ' 2>&1 | tee "$RUNNER_TEMP/fex-build-logs/build.txt"
+          status=${PIPESTATUS[0]}
+          set -e
+          if (( status != 0 )); then
+            details=$( { grep -E "fatal error:|error:" "$RUNNER_TEMP/fex-build-logs/build.txt" | tail -n 15 || true; tail -n 8 "$RUNNER_TEMP/fex-build-logs/build.txt" | cut -c1-500; } | sed 's/%/%25/g' | awk '{printf "%s%%0A", $0}')
+            echo "::error::FEX のビルドに失敗%0A$details"
+            exit "$status"
+          fi
+      - uses: actions/cache/save@v4
+        if: steps.fex_cache.outputs.cache-hit != 'true'
+        with:
+          path: ${{ runner.temp }}/fex-build/Bin
+          key: fex-2611.1-4f9c1f1e-linux-arm64-clang18-v1
+      - name: 検査ツールを準備
+        run: |
+          sudo apt-get update
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y binutils-x86-64-linux-gnu strace
+          echo "$RUNNER_TEMP/fex-build/Bin" >> "$GITHUB_PATH"
+      - name: 記録とキャッシュ読み込みを検査
+        run: |
+          set +e
+          bash tools/translation-benchmark/test-fex-cache.sh "$RUNNER_TEMP/fex-cache-test" 2>&1 | tee "$RUNNER_TEMP/fex-cache-test-log.txt"
+          status=${PIPESTATUS[0]}
+          set -e
+          if (( status != 0 )); then
+            if [[ -f "$RUNNER_TEMP/fex-cache-test/diagnostics/summary.txt" ]]; then
+              summary=$(sed 's/%/%25/g' "$RUNNER_TEMP/fex-cache-test/diagnostics/summary.txt" | awk '{printf "%s%%0A", $0}')
+              echo "::notice::FEX 追加診断%0A$summary"
+            fi
+            details=$(tail -n 50 "$RUNNER_TEMP/fex-cache-test-log.txt" | sed 's/%/%25/g' | awk '{printf "%s%%0A", $0}')
+            echo "::error::Linux FEX キャッシュ検査失敗%0A$details"
+            exit "$status"
+          fi
+      - uses: actions/upload-artifact@v4
+        if: ${{ always() }}
+        with:
+          name: linux-fex-cache-check
+          path: |
+            ${{ runner.temp }}/fex-cache-test/**/*.txt
+            ${{ runner.temp }}/fex-cache-test/*.txt
+            ${{ runner.temp }}/fex-cache-test-log.txt
+            ${{ runner.temp }}/fex-build-logs/build.txt
+          if-no-files-found: warn

@@ -1,0 +1,20 @@
+name: 最適化観測ツールの検査
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'tools/optimization-observer/**'
+      - '.github/workflows/optimization-observer.yml'
+  pull_request:
+    paths:
+      - 'tools/optimization-observer/**'
+      - '.github/workflows/optimization-observer.yml'
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+      - name: 読み取り専用と異常時のモック検査
+        run: python3 -m unittest discover -s tools/optimization-observer -p 'test_*.py' -v

@@ -25,6 +25,8 @@ fi
     echo "変換ブリッジ: $(adb shell getprop ro.dalvik.vm.native.bridge | tr -d '\r')"
     echo "Android: $(adb shell getprop ro.build.version.release | tr -d '\r')"
 } | tee emulator-results/device.txt
+# 後から公開する APK が、このテストでインストールしたものと一致することを確認する。
+sha256sum "${apps[0]}" | tee emulator-results/tested-apk-sha256.txt
 adb install -r "${apps[0]}"
 adb install -r "${tests[0]}"
 adb shell dumpsys package app.gamenative | tr -d '\r' > emulator-results/package.txt
@@ -35,13 +37,13 @@ fi
 # adb はテスト失敗時も成功終了する場合があるため、出力も必ず検証する。
 set +e
 adb shell am instrument -w -r \
-    -e class 'app.gamenative.ArmNativeBridgeSmokeTest,app.gamenative.VulkanProbeSmokeTest,app.gamenative.GraphicsDeviceSmokeTest,com.winlator.renderer.TextureFilterOptimizationTest,com.winlator.renderer.EffectBufferAllocationTest' \
+    -e class 'app.gamenative.ArmNativeBridgeSmokeTest,app.gamenative.VulkanProbeSmokeTest,app.gamenative.GraphicsDeviceSmokeTest,com.winlator.renderer.TextureFilterOptimizationTest,com.winlator.renderer.EffectBufferAllocationTest,com.winlator.renderer.FramebufferCopyReuseTest' \
     app.gamenative.test/androidx.test.runner.AndroidJUnitRunner 2>&1 | tr -d '\r' | tee emulator-results/instrumentation.txt
 status=${PIPESTATUS[0]}
 set -e
 adb logcat -d -s 'GraphicsDeviceSmokeTest:I' '*:S' > emulator-results/graphics-log.txt || true
 cat emulator-results/graphics-log.txt
-if (( status != 0 )) || ! grep -Eq '^OK \(5 tests?\)' emulator-results/instrumentation.txt; then
+if (( status != 0 )) || ! grep -Eq '^OK \(6 tests?\)' emulator-results/instrumentation.txt; then
     details=$(tail -n 60 emulator-results/instrumentation.txt | sed -e 's/%/%25/g' | awk '{printf "%s%%0A", $0}')
     echo "::error::テストに失敗しました。%0A$details"
     exit 1
@@ -69,11 +71,11 @@ if [[ -z "$initial_pid" ]]; then
     echo 'アプリのプロセスが起動していません。' >&2
     exit 1
 fi
-for _ in {1..10}; do
+for _ in {1..60}; do
     sleep 1
     pid=$(adb shell pidof app.gamenative 2>/dev/null | tr -d '\r' || true)
     if [[ "$pid" != "$initial_pid" ]]; then
-        echo '起動後10秒以内にアプリが終了または再起動しました。' >&2
+        echo '起動後60秒以内にアプリが終了または再起動しました。' >&2
         exit 1
     fi
 done
@@ -84,4 +86,5 @@ if ! grep -E 'topResumedActivity|mResumedActivity' emulator-results/activities.t
 fi
 adb exec-out screencap -p > emulator-results/app-start.png
 test -s emulator-results/app-start.png
-printf 'APK が起動し、メイン画面の前面表示と10秒間のプロセス生存を確認しました。\n'
+sha256sum --check emulator-results/tested-apk-sha256.txt
+printf 'APK が起動し、メイン画面の前面表示と60秒間のプロセス生存を確認しました。\n' | tee emulator-results/survival.txt

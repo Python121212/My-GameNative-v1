@@ -1,0 +1,83 @@
+name: 無料ゲーム Direct3D 9 の予備比較
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'tools/graphics-benchmark/run-freedoom.sh'
+      - 'tools/graphics-benchmark/sdl-capture.c'
+      - 'tools/graphics-benchmark/create-sdl-proxy.py'
+      - 'tools/graphics-benchmark/summarize-freedoom.py'
+      - 'tools/graphics-benchmark/xorg-dummy.conf'
+      - '.github/workflows/freedoom-d3d9-comparison.yml'
+permissions:
+  contents: read
+jobs:
+  compare:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v6
+      - name: Wine と仮想画面を準備
+        run: |
+          sudo apt-get update
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y wine wine64 gcc-mingw-w64-x86-64 xserver-xorg-core xserver-xorg-video-dummy x11-utils x11-xserver-utils mesa-utils mesa-vulkan-drivers vulkan-tools unzip python3-pil
+      - name: 公式ゲーム・データと DXVK を取得
+        run: |
+          set -euo pipefail
+          curl -fL --retry 3 -o "$RUNNER_TEMP/chocolate.zip" https://github.com/chocolate-doom/chocolate-doom/releases/download/chocolate-doom-3.1.1/chocolate-doom-3.1.1-win64.zip
+          echo '58c34c61ae954493fce5ff01fd553898240a0de25658aa97b43ac9510c49581f  '"$RUNNER_TEMP/chocolate.zip" | sha256sum -c -
+          curl -fL --retry 3 -o "$RUNNER_TEMP/freedoom.zip" https://github.com/freedoom/freedoom/releases/download/v0.13.0/freedoom-0.13.0.zip
+          echo '3f9b264f3e3ce503b4fb7f6bdcb1f419d93c7b546f4df3e874dd878db9688f59  '"$RUNNER_TEMP/freedoom.zip" | sha256sum -c -
+          curl -fL --retry 3 -o "$RUNNER_TEMP/freedoom-CHECKSUM" https://github.com/freedoom/freedoom/releases/download/v0.13.0/freedoom-0.13.0-CHECKSUM
+          cat "$RUNNER_TEMP/freedoom-CHECKSUM"
+          echo "::notice::Freedoom 公式チェックサム%0A$(sed 's/%/%25/g' "$RUNNER_TEMP/freedoom-CHECKSUM" | awk '{printf "%s%%0A", $0}')"
+          curl -fL --retry 3 -o "$RUNNER_TEMP/dxvk.tar.gz" https://github.com/doitsujin/dxvk/releases/download/v2.6.1/dxvk-2.6.1.tar.gz
+          sha256sum "$RUNNER_TEMP/freedoom.zip" "$RUNNER_TEMP/dxvk.tar.gz"
+      - name: 固定デモと描画の検査・各4回
+        run: |
+          set -e
+          sudo Xorg :99 -noreset -nolisten tcp -config "$GITHUB_WORKSPACE/tools/graphics-benchmark/xorg-dummy.conf" -logfile "$RUNNER_TEMP/xorg.log" >"$RUNNER_TEMP/xorg-stdout.txt" 2>&1 &
+          xpid=$!
+          trap 'sudo kill "$xpid" 2>/dev/null || true' EXIT
+          export DISPLAY=:99
+          for i in {1..30}; do xdpyinfo >/dev/null 2>&1 && break; sleep 1; done
+          xdpyinfo >/dev/null
+          set +e
+          bash tools/graphics-benchmark/run-freedoom.sh "$RUNNER_TEMP/freedoom-compare" "$RUNNER_TEMP/chocolate.zip" "$RUNNER_TEMP/freedoom.zip" "$RUNNER_TEMP/dxvk.tar.gz" 2>&1 | tee "$RUNNER_TEMP/freedoom-log.txt"
+          status=${PIPESTATUS[0]}
+          set -e
+          if [[ -f "$RUNNER_TEMP/freedoom-compare/summary.txt" ]]; then
+            summary=$(sed 's/%/%25/g' "$RUNNER_TEMP/freedoom-compare/summary.txt" | awk '{printf "%s%%0A", $0}')
+            echo "::notice::無料ゲーム試験%0A$summary"
+          fi
+          if [[ -f "$RUNNER_TEMP/freedoom-compare/dxvk-1.png" ]]; then
+            python3 - "$RUNNER_TEMP/freedoom-compare/dxvk-1.png" <<'PYTHUMB'
+          import base64, io, sys
+          from PIL import Image
+          image = Image.open(sys.argv[1]).convert('RGB')
+          image.thumbnail((200, 150))
+          data = io.BytesIO()
+          image.save(data, format='JPEG', quality=55, optimize=True)
+          encoded = base64.b64encode(data.getvalue()).decode()
+          for offset in range(0, len(encoded), 3000):
+              print(f'::notice::ゲーム画面縮小画像 {offset:06d}=' + encoded[offset:offset+3000])
+          PYTHUMB
+          fi
+          if ((status != 0)); then
+            details=$(tail -n 35 "$RUNNER_TEMP/freedoom-log.txt" | sed 's/%/%25/g' | awk '{printf "%s%%0A", $0}')
+            echo "::error::無料ゲーム試験失敗%0A$details"
+          fi
+          exit "$status"
+      - uses: actions/upload-artifact@v4
+        if: ${{ always() }}
+        with:
+          name: freedoom-comparison
+          path: |
+            ${{ runner.temp }}/freedoom-log.txt
+            ${{ runner.temp }}/xorg*.txt
+            ${{ runner.temp }}/xorg.log
+            ${{ runner.temp }}/freedoom-CHECKSUM
+            ${{ runner.temp }}/freedoom-compare/*.txt
+            ${{ runner.temp }}/freedoom-compare/*.png
+          if-no-files-found: warn
+          retention-days: 14

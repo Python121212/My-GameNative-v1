@@ -1,0 +1,55 @@
+name: Direct3D 10 描画動作の確認
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'tools/direct3d10-test/**'
+      - 'tools/graphics-benchmark/xorg-dummy.conf'
+      - '.github/workflows/direct3d10-smoke.yml'
+permissions:
+  contents: read
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        backend: [dxvk, wined3d]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v6
+      - name: Wine とソフトウェア描画の準備
+        run: |
+          sudo apt-get update
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y wine wine64 g++-mingw-w64-x86-64 xserver-xorg-core xserver-xorg-video-dummy x11-utils mesa-utils mesa-vulkan-drivers vulkan-tools
+      - name: DXVK 2.6.1 を取得
+        run: |
+          curl --fail --location --retry 3 -o "$RUNNER_TEMP/dxvk.tar.gz" https://github.com/doitsujin/dxvk/releases/download/v2.6.1/dxvk-2.6.1.tar.gz
+          sha256sum "$RUNNER_TEMP/dxvk.tar.gz"
+      - name: Direct3D 10 の描画・表示を各4回検査
+        run: |
+          set -euo pipefail
+          sudo Xorg :99 -noreset -nolisten tcp -config "$GITHUB_WORKSPACE/tools/graphics-benchmark/xorg-dummy.conf" -logfile "$RUNNER_TEMP/xorg.log" >"$RUNNER_TEMP/xorg-stdout.txt" 2>&1 &
+          xpid=$!
+          trap 'sudo kill "$xpid" 2>/dev/null || true' EXIT
+          export DISPLAY=:99
+          for i in {1..30}; do xdpyinfo >/dev/null 2>&1 && break; sleep 1; done
+          xdpyinfo >/dev/null
+          set +e
+          bash tools/direct3d10-test/run.sh "$RUNNER_TEMP/d3d10-test" "$RUNNER_TEMP/dxvk.tar.gz" '${{ matrix.backend }}' 2>&1 | tee "$RUNNER_TEMP/test.log"
+          status=${PIPESTATUS[0]}
+          set -e
+          details=$(tail -n 65 "$RUNNER_TEMP/test.log" | sed 's/%/%25/g' | awk '{printf "%s%%0A", $0}')
+          if ((status != 0)); then echo "::error::Direct3D 10 検査失敗%0A$details"; else echo "::notice::Direct3D 10 検査結果%0A$details"; fi
+          exit "$status"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: direct3d10-${{ matrix.backend }}
+          path: |
+            ${{ runner.temp }}/test.log
+            ${{ runner.temp }}/xorg.log
+            ${{ runner.temp }}/xorg-stdout.txt
+            ${{ runner.temp }}/d3d10-test/*.txt
+          if-no-files-found: warn
+          retention-days: 14

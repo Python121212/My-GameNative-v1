@@ -1,0 +1,24 @@
+diff --git a/src/d3d9/d3d9_swapchain.cpp b/src/d3d9/d3d9_swapchain.cpp
+index f58b2e6..1db13e5 100644
+--- a/src/d3d9/d3d9_swapchain.cpp
++++ b/src/d3d9/d3d9_swapchain.cpp
+@@ -146,6 +146,7 @@ namespace dxvk {
+ 
+     if (m_window != window) {
+       m_window = window;
++      m_wctx = nullptr;
+       m_displayRefreshRateDirty = true;
+     }
+ 
+@@ -979,6 +980,11 @@ namespace dxvk {
+     if (!m_window)
+       return false;
+ 
++    // The active context remains valid until its window changes or Invalidate
++    // erases it. Avoid searching the presenter map for every frame.
++    if (m_wctx)
++      return true;
++
+     auto entry = m_presenters.find(m_window);
+ 
+     if (entry == m_presenters.end()) {

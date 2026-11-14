@@ -94,10 +94,9 @@ jobs:
             echo "FEX で Windows 版ベンチマークを動作確認します"
             timeout 300 xvfb-run -a env WINEDEBUG=-all WINEPREFIX="$RUNNER_TEMP/wine-fex" FEX_ROOTFS="$RUNNER_TEMP/wine-rootfs" FEX "$wine_bin" "$RUNNER_TEMP/benchmark/7za.exe" b -mmt1 -md20 2>&1 | tee "$RUNNER_TEMP/results/windows-fex.txt"
             grep -E "^Tot:" "$RUNNER_TEMP/results/windows-fex.txt"
-            echo "初期化済みの Wine 設定を複製して Box64 の起動を確認します（性能比較には使用しません）"
-            cp -a "$RUNNER_TEMP/wine-fex" "$RUNNER_TEMP/wine-box64"
-            echo "Box64 で Windows 版ベンチマークを動作確認します"
-            timeout 150 xvfb-run -a env BOX64_LOG=1 WINEDEBUG=-all WINEPREFIX="$RUNNER_TEMP/wine-box64" "$RUNNER_TEMP/box64-cache/box64" "$wine_bin" "$RUNNER_TEMP/benchmark/7za.exe" b -mmt1 -md20 2>&1 | tee "$RUNNER_TEMP/results/windows-box64.txt"
+            echo "Box64 で空の Wine 設定を独立して初期化し、Windows 版ベンチマークを実行します"
+            test ! -e "$RUNNER_TEMP/wine-box64"
+            timeout 420 xvfb-run -a env BOX64_LOG=1 WINEDEBUG=-all WINEDLLOVERRIDES="winemenubuilder.exe=d;mscoree,mshtml=" WINEPREFIX="$RUNNER_TEMP/wine-box64" "$RUNNER_TEMP/box64-cache/box64" "$wine_bin" "$RUNNER_TEMP/benchmark/7za.exe" b -mmt1 -md20 2>&1 | tee "$RUNNER_TEMP/results/windows-box64.txt"
             grep -E "^Tot:" "$RUNNER_TEMP/results/windows-box64.txt"
           ' 2>&1 | tee "$RUNNER_TEMP/results/wine-setup.txt"
           status=${PIPESTATUS[0]}
