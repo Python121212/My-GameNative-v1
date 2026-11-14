@@ -29,9 +29,17 @@ jobs:
         run: |
           touch local.properties
           set -o pipefail
+          set +e
           ./gradlew :app:assembleModernDebug :app:assembleModernDebugAndroidTest :app:assembleModernRelease \
             --no-daemon --max-workers=2 -Dorg.gradle.jvmargs='-Xmx3g -Dfile.encoding=UTF-8' \
             -Pkotlin.daemon.jvmargs=-Xmx5g 2>&1 | tee "$RUNNER_TEMP/build.log"
+          status=${PIPESTATUS[0]}
+          set -e
+          if (( status != 0 )); then
+            details=$(tail -n 100 "$RUNNER_TEMP/build.log" | sed 's/%/%25/g' | awk '{printf "%s%%0A", $0}')
+            echo "::error::ビルド失敗%0A$details"
+          fi
+          exit "$status"
       - name: KVM の確認
         id: kvm
         run: |
