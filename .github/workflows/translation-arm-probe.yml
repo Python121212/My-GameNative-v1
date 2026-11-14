@@ -4,6 +4,8 @@ on:
   push:
     paths:
       - 'tools/translation-benchmark/probe-arm-runner.sh'
+      - 'tools/translation-benchmark/check-android-translation.sh'
+      - 'tools/tests/test-check-android-translation.sh'
       - '.github/workflows/translation-arm-probe.yml'
 permissions:
   contents: read
@@ -13,6 +15,8 @@ jobs:
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v6
+      - name: Android 実行環境判定のモック検査
+        run: bash tools/tests/test-check-android-translation.sh
       - name: ARM ホストと FEX パックを確認
         run: bash tools/translation-benchmark/probe-arm-runner.sh
       - name: 確認結果を保存
