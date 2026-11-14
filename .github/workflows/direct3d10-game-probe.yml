@@ -23,7 +23,7 @@ jobs:
           set -o pipefail
           cd "$RUNNER_TEMP/steamcmd"
           set +e
-          timeout 600 ./steamcmd.sh +force_install_dir "$RUNNER_TEMP/game" +login anonymous +app_update 995990 validate +quit > "$RUNNER_TEMP/download.log" 2>&1
+          timeout 600 ./steamcmd.sh +@sSteamCmdForcePlatformType windows +force_install_dir "$RUNNER_TEMP/game" +login anonymous +app_update 995990 validate +quit > "$RUNNER_TEMP/download.log" 2>&1
           status=$?
           set -e
           tail -100 "$RUNNER_TEMP/download.log"
@@ -34,7 +34,11 @@ jobs:
           fi
           find "$RUNNER_TEMP/game" -iname '*.exe' -print | tee "$RUNNER_TEMP/executables.txt"
           while IFS= read -r file; do file "$file"; sha256sum "$file"; done < "$RUNNER_TEMP/executables.txt"
-          test -s "$RUNNER_TEMP/executables.txt"
+          if [[ ! -s "$RUNNER_TEMP/executables.txt" ]]; then
+            echo "::error::ゲームの exe が見つかりません。SteamCMD exit=$status、ログ末尾: $details"
+            exit 1
+          fi
+          echo "::notice::ゲーム exe が見つかりました。"
       - uses: actions/upload-artifact@v4
         if: always()
         with:
