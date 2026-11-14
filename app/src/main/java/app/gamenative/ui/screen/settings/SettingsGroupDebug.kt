@@ -5,6 +5,8 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.TextButton
@@ -42,6 +44,7 @@ import kotlinx.coroutines.launch
 import app.gamenative.utils.DiagnosticLog
 import app.gamenative.utils.CompressionSelfTest
 import app.gamenative.utils.MemoryStatus
+import app.gamenative.utils.BenchmarkDownload
 import java.io.File
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.json.Json
@@ -185,6 +188,26 @@ fun SettingsGroupDebug() {
     }
 
     val diagnosticScope = rememberCoroutineScope()
+    var benchmarkDownload by remember { mutableStateOf<BenchmarkDownload?>(null) }
+    benchmarkDownload?.let { benchmark ->
+        val cpu = benchmark == BenchmarkDownload.CPU
+        AlertDialog(
+            onDismissRequest = { benchmarkDownload = null },
+            title = { Text(stringResource(if (cpu) R.string.benchmark_cpu_title else R.string.benchmark_graphics_title)) },
+            text = { Text(stringResource(if (cpu) R.string.benchmark_cpu_detail else R.string.benchmark_graphics_detail), modifier = Modifier.verticalScroll(rememberScrollState())) },
+            confirmButton = {
+                TextButton(onClick = {
+                    benchmarkDownload = null
+                    if (!isPreview) {
+                        try { context.startActivity(benchmark.browserIntent()) }
+                        catch (_: android.content.ActivityNotFoundException) { SnackbarManager.show(context.getString(R.string.benchmark_no_browser)) }
+                        catch (_: SecurityException) { SnackbarManager.show(context.getString(R.string.benchmark_no_browser)) }
+                    }
+                }) { Text(stringResource(R.string.benchmark_download_action)) }
+            },
+            dismissButton = { TextButton(onClick = { benchmarkDownload = null }) { Text(stringResource(R.string.diagnostic_cancel)) } },
+        )
+    }
     var memoryResult by remember { mutableStateOf<String?>(null) }
     if (memoryResult != null) {
         AlertDialog(
@@ -233,6 +256,18 @@ fun SettingsGroupDebug() {
     }
 
     SettingsGroup() {
+        SettingsMenuLink(
+            colors = settingsTileColors(),
+            title = { Text(stringResource(R.string.benchmark_cpu_title)) },
+            subtitle = { Text(stringResource(R.string.benchmark_cpu_subtitle)) },
+            onClick = { benchmarkDownload = BenchmarkDownload.CPU },
+        )
+        SettingsMenuLink(
+            colors = settingsTileColors(),
+            title = { Text(stringResource(R.string.benchmark_graphics_title)) },
+            subtitle = { Text(stringResource(R.string.benchmark_graphics_subtitle)) },
+            onClick = { benchmarkDownload = BenchmarkDownload.GRAPHICS },
+        )
         SettingsMenuLink(
             colors = settingsTileColors(),
             title = { Text(stringResource(R.string.memory_probe_title)) },

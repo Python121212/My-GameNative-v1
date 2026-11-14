@@ -946,6 +946,14 @@
     <string name="force_dlc_description">Only enable if DLCs are not detected or saves with DLC are not working</string>
     <string name="local_saves_only">Local saves only</string>
     <string name="local_saves_only_description">Disable cloud save sync for this game and keep saves on device only</string>
+    <string name="benchmark_cpu_title">CPU 測定用：7-Zip</string>
+    <string name="benchmark_cpu_subtitle">無料・Windows x64 版 約1.6 MB。ブラウザで公式配布元から取得。</string>
+    <string name="benchmark_cpu_detail">7-Zip 26.06 の Windows x64 インストーラー（約1.6 MB）を公式 GitHub からブラウザでダウンロードします。通信先は github.com です。アプリは取得・展開・インストール・実行を自動で行いません。\n\nダウンロード後、専用フォルダに入れ、ライブラリの「＋」からフォルダを追加してインストーラーを起動してください。インストール後の 7-Zip File Manager の「Tools → Benchmark」で測定できます。別のテスト用コンテナを使い、既存データは変更しないでください。\n\nGameNative、FEX／Box64、Pixel 9a での起動・測定は未確認です。CPU負荷により発熱します。高温時は中止してください。</string>
+    <string name="benchmark_graphics_title">描画測定用：AIO Graphics Test</string>
+    <string name="benchmark_graphics_subtitle">無料・Windows x64 版 約4.3 MB。DX11 対応の測定用ソフト。</string>
+    <string name="benchmark_graphics_detail">AIO Graphics Test 2.2.0 の Windows x64 版（約4.3 MB）を作者の GitHub からブラウザでダウンロードします。通信先は github.com です。アプリは取得・インストール・実行を自動で行いません。\n\nダウンロードした EXE を専用フォルダに置き、ライブラリの「＋」からそのフォルダを追加して実行します。DX11 を選択し、測定画面でベンチマークを実行してください。書き込み可能な専用フォルダに結果が作られる場合があります。\n\nGameNative と Pixel 9a での起動・DX11・測定結果は未確認です。小さな合成描画テストであり、実ゲームの性能を保証しません。高温時は中止してください。</string>
+    <string name="benchmark_download_action">ブラウザで取得</string>
+    <string name="benchmark_no_browser">ブラウザを開けませんでした。ブラウザの設定を確認してください。</string>
     <string name="memory_probe_title">メモリ・スワップの状態</string>
     <string name="memory_probe_subtitle">現在の状態を読み取り専用で表示。ZRAM の拡張は行いません。</string>
     <string name="compression_trial_title">圧縮と部分読み込みの試験</string>
