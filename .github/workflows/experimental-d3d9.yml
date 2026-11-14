@@ -1,0 +1,40 @@
+name: 独自 D3D9 基盤の Vulkan 描画確認
+on:
+  push:
+    paths:
+      - 'experimental/gamenative-d3d9/**'
+      - '.github/workflows/experimental-d3d9.yml'
+  pull_request:
+    paths:
+      - 'experimental/gamenative-d3d9/**'
+      - '.github/workflows/experimental-d3d9.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  vulkan:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+      - name: Vulkan と検証レイヤーを準備
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake ninja-build libvulkan-dev mesa-vulkan-drivers vulkan-validationlayers
+      - name: ビルド
+        run: |
+          cmake -S experimental/gamenative-d3d9 -B "$RUNNER_TEMP/gn-d3d9-build" -G Ninja -DCMAKE_BUILD_TYPE=Debug
+          cmake --build "$RUNNER_TEMP/gn-d3d9-build"
+      - name: lavapipe で転送・ピクセルと Vulkan 検証
+        run: |
+          set -euo pipefail
+          icd=$(find /usr/share/vulkan/icd.d -name 'lvp_icd*.json' | head -1)
+          test -n "$icd"
+          export VK_ICD_FILENAMES="$icd" VK_INSTANCE_LAYERS=VK_LAYER_KHRONOS_validation
+          ctest --test-dir "$RUNNER_TEMP/gn-d3d9-build" -V --output-on-failure 2>&1 | tee "$RUNNER_TEMP/gn-d3d9-test.log"
+          if grep -E 'Validation Error|VUID-' "$RUNNER_TEMP/gn-d3d9-test.log"; then exit 1; fi
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: gn-d3d9-vulkan-tests
+          path: ${{ runner.temp }}/gn-d3d9-test.log
+          if-no-files-found: ignore
