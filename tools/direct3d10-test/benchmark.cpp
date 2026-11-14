@@ -16,6 +16,16 @@ static HWND window() {
     HWND w=CreateWindowA(wc.lpszClassName,"Direct3D 10 test",WS_OVERLAPPEDWINDOW,0,0,rect.right-rect.left,rect.bottom-rect.top,nullptr,nullptr,wc.hInstance,nullptr);
     if (w) { ShowWindow(w,SW_SHOW); UpdateWindow(w); } return w;
 }
+static bool drain(ID3D10Device* dev, ID3D10Query* query) {
+    query->End(); dev->Flush();
+    BOOL complete=FALSE; ULONGLONG deadline=GetTickCount64()+30000;
+    for (;;) {
+        HRESULT status=query->GetData(&complete,sizeof(complete),0);
+        if(status==S_OK && complete) return true;
+        if(FAILED(status) || GetTickCount64()>=deadline) { std::fprintf(stderr,"GPU イベント完了待ち失敗 status=0x%08lx\n",static_cast<unsigned long>(status)); return false; }
+        Sleep(0);
+    }
+}
 int main() {
     HWND hwnd=window(); if (!hwnd) { std::fprintf(stderr,"ウィンドウ作成失敗\n"); return 1; }
     DXGI_SWAP_CHAIN_DESC sd{}; sd.BufferDesc.Width=WIDTH; sd.BufferDesc.Height=HEIGHT; sd.BufferDesc.Format=DXGI_FORMAT_B8G8R8A8_UNORM;
@@ -53,7 +63,7 @@ int main() {
     LARGE_INTEGER start{}, end{}, freq{}; if (!QueryPerformanceFrequency(&freq) || !freq.QuadPart) return 1;
     constexpr unsigned warmup=30, frames=300;
     for(unsigned frame=0;frame<warmup+frames+1;frame++) {
-        if(frame==warmup && !QueryPerformanceCounter(&start)) return 1;
+        if(frame==warmup) { if(!drain(dev,finished) || !QueryPerformanceCounter(&start)) return 1; }
         dev->OMSetRenderTargets(1,&rt,nullptr); dev->ClearRenderTargetView(rt,black); dev->Draw(3,0);
         // 最初と計測後の一枚は読み戻すが、計測区間には含めない。
         if(frame==0 || frame==warmup+frames) {
@@ -68,14 +78,7 @@ int main() {
         CHECK(swap->Present(0,0));
         MSG msg; while(PeekMessageA(&msg,nullptr,0,0,PM_REMOVE)) { TranslateMessage(&msg); DispatchMessageA(&msg); }
         if(frame==warmup+frames-1) {
-            finished->End(); dev->Flush();
-            BOOL complete=FALSE; ULONGLONG deadline=GetTickCount64()+30000;
-            for (;;) {
-                HRESULT status=finished->GetData(&complete,sizeof(complete),0);
-                if(status==S_OK && complete) break;
-                if(FAILED(status) || GetTickCount64()>=deadline) { std::fprintf(stderr,"GPU イベント完了待ち失敗 status=0x%08lx\n",static_cast<unsigned long>(status)); return 1; }
-                Sleep(0);
-            }
+            if (!drain(dev,finished)) return 1;
             if (!QueryPerformanceCounter(&end)) return 1;
         }
     }
