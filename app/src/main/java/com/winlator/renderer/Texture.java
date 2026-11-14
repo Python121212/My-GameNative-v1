@@ -95,7 +95,7 @@ public class Texture {
         GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, framebuffer);
         GLES20.glActiveTexture(GLES20.GL_TEXTURE0);
         GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, textureId);
-        if (framebufferCopyWidth == width && framebufferCopyHeight == height) {
+        if (width > 0 && height > 0 && framebufferCopyWidth == width && framebufferCopyHeight == height) {
             updateFramebufferCopy(width, height);
         }
         else {
