@@ -1,0 +1,29 @@
+name: リリース署名の利用可否確認
+
+on:
+  push:
+    paths:
+      - '.github/workflows/release-signing-readiness.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: 署名設定の有無のみ確認
+        env:
+          STORE: ${{ secrets.PROD_KEYSTORE }}
+          ALIAS: ${{ secrets.PROD_KEYSTORE_KEY_ALIAS }}
+          STORE_PASS: ${{ secrets.PROD_KEYSTORE_STORE_PASSWORD }}
+          KEY_PASS: ${{ secrets.PROD_KEYSTORE_KEY_PASSWORD }}
+        run: |
+          set -eu
+          if [ -n "$STORE" ] && [ -n "$ALIAS" ] && [ -n "$STORE_PASS" ] && [ -n "$KEY_PASS" ]; then
+            echo 'リリース署名設定の4項目は提供されています。署名の有効性や既存アプリとの一致は未確認。'
+          else
+            echo '::warning::リリース署名に必要な設定が不足しています。署名・公開は実行しません。'
+            echo '署名設定が不足しているため、試験版・安定版の署名と公開は実施していません。' >> "$GITHUB_STEP_SUMMARY"
+          fi
