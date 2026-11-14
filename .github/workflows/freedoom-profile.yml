@@ -47,6 +47,8 @@ jobs:
           status=${PIPESTATUS[0]}
           set -e
           if [[ -f "$RUNNER_TEMP/freedoom-compare/summary.txt" ]]; then
+            timings=$(grep -E 'CPU ms/対象フレーム|sampled_frames|control: FPS|profile: FPS' "$RUNNER_TEMP/freedoom-compare/summary.txt" | sed 's/%/%25/g' | awk '{printf "%s%%0A", $0}')
+            echo "::notice::描画処理の時間%0A$timings"
             summary=$(sed 's/%/%25/g' "$RUNNER_TEMP/freedoom-compare/summary.txt" | awk '{printf "%s%%0A", $0}')
             echo "::notice::無料ゲーム試験%0A$summary"
           fi
