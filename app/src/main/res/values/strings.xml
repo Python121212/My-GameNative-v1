@@ -3004,7 +3004,7 @@
     <string name="review_overwhelmingly_negative">Overwhelmingly Negative</string>
     <!-- LSFG Frame Generation -->
     <string name="lsfg_tab_title">LSFG-VK</string>
-    <string name="lsfg_description">Generate intermediate frames using Lossless Scaling\'s Vulkan layer. Only known to work on Adreno 6xx and above.</string>
+    <string name="lsfg_description">Generates intermediate images, not new game input updates. Latency, heat, and power use may increase. Pixel 9a compatibility is unverified. Compare with it off when responsiveness matters.</string>
     <string name="lsfg_enable">Enable LSFG-VK frame generation</string>
     <string name="lsfg_multiplier">Frame multiplier</string>
     <string name="lsfg_flow_scale">Flow scale</string>

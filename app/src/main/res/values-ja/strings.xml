@@ -2958,7 +2958,7 @@
     <string name="review_overwhelmingly_negative">圧倒的に不評</string>
     <!-- LSFG Frame Generation -->
     <string name="lsfg_tab_title">LSFG-VK</string>
-    <string name="lsfg_description">Lossless Scaling\'s Vulkan レイヤーを使用して中間フレームを生成します。 Adreno 6xx 以降でのみ動作することが報告されています。</string>
+    <string name="lsfg_description">中間画像を生成しますが、ゲームの入力処理 FPS は増えません。遅延・発熱・電力消費が増える場合があります。Pixel 9a での動作は未検証です。入力重視ならオフで比較してください。</string>
     <string name="lsfg_enable">LSFG-VK フレーム生成を有効にする</string>
     <string name="lsfg_multiplier">フレーム倍率</string>
     <string name="lsfg_flow_scale">フロースケール</string>
