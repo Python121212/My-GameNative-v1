@@ -577,6 +577,7 @@ fun XServerScreen(
     }
     val launchCancel = remember(appId) { AtomicBoolean(false).also { launchCancelled = it } }
     val ui = remember { XServerScreenState(container, context) }
+    DiagnosticSession(context, appId) { ui.frameRating }
     val activity = remember(context) { BrightnessManager.findActivity(context) }
     LaunchedEffect(appId) { GameSessionId.bind() }
 
@@ -2583,6 +2584,7 @@ fun XServerScreen(
                                 launchCancel,
                             )
                             if (launchCancel.get()) throw IllegalStateException("Launch exited during setup")
+                            app.gamenative.utils.DiagnosticLog.event(app.gamenative.utils.DiagnosticLog.LaunchEvent.ENV_READY)
 
                             // Where DXVK keeps this game's pipeline cache, for the session's compile count.
                             SessionPerfSampler.armStateCache(
@@ -2652,6 +2654,7 @@ fun XServerScreen(
                                 Timber.e(cleanupEx, "Error cleaning up environment after setup failure")
                             }
                             PluviaApp.xEnvironment = null
+                            app.gamenative.utils.DiagnosticLog.event(app.gamenative.utils.DiagnosticLog.LaunchEvent.SETUP_FAILED)
                             if (!launchCancel.get()) onGameLaunchError?.invoke("Failed to setup wine: ${e.message}")
                         } finally {
                             setupExecutor.shutdown()
@@ -4736,6 +4739,10 @@ private fun setupXEnvironment(
             Timber.w("Ignoring termination of a previous game session (status %d)", status)
             return@Callback
         }
+        app.gamenative.utils.DiagnosticLog.event(
+            if (status == 0) app.gamenative.utils.DiagnosticLog.LaunchEvent.GUEST_EXIT_OK
+            else app.gamenative.utils.DiagnosticLog.LaunchEvent.GUEST_EXIT_ERROR,
+        )
         if (status != 0) {
             Timber.e("Guest program terminated with status: $status")
             onGameLaunchError?.invoke("Game terminated with error status: $status")
