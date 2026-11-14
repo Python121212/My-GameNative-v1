@@ -48,6 +48,8 @@ jobs:
             echo "::error::$details"
           fi
           exit "$status"
+      - name: 測定用ソフトの公式配布ファイルを確認
+        run: bash tools/test-benchmark-downloads.sh
       - name: KVM の確認
         id: kvm
         run: |
@@ -133,7 +135,7 @@ jobs:
             echo
             echo '同じ APK で Android 35 x86_64 エミュレーターの ARM 変換機能を使い、ARM ライブラリ・基本描画のテスト、起動、メイン画面の前面表示、60秒間のプロセス生存を確認しました。'
             echo 'Pixel 9a 実機、ゲームの起動・描画、長時間動作、FPS、温度は未確認です。'
-            echo 'ライブラリ画面が停止したとき、構成変更以外ではゲーム準備状態に依存せず画像のメモリキャッシュを解放します。ディスクやゲームデータは変更しません。Pixel 9a の RAM・FPS・発熱への効果は未検証です。圧縮の実ゲームへの透過接続や ZRAM の拡張は未対応です。'
+            echo '設定のデバッグに小容量 CPU・DX11 測定用 Windows ソフトの公式ダウンロードへのリンクを追加。ブラウザで取得し、実行・導入は手動です。Pixel 9a や GameNative での測定用ソフトの動作・性能は未確認です。'
             echo 'アプリに統合済みの実験的変更を含みます。未接続の独自 DirectX 試作、未採用の DXVK パッチ、ホスト用観測ツールは APK の機能ではありません。'
             echo '署名が既存 APK と異なる場合、上書きインストールできません。ゲームデータ保護のため、アンインストールやデータ消去はしないでください。'
           } > emulator-results/release-notes.txt
