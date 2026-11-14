@@ -28,6 +28,7 @@ public:
     // テスト用同期読み戻し。テクスチャのバイト順のまま上から返す。
     std::vector<std::uint8_t> readback(TextureId id);
     void wait();
+    VkDeviceSize stagingCapacity() const;
 private:
     struct Impl;
     std::unique_ptr<Impl> impl;

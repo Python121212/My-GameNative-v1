@@ -212,4 +212,5 @@ std::vector<uint8_t> UploadContext::readback(TextureId id) {
     return result;
 }
 void UploadContext::wait() { auto& p=*impl; if(p.locked) throw std::logic_error("ロック中は待機できません"); p.wait(); }
+VkDeviceSize UploadContext::stagingCapacity() const { return impl->capacity; }
 }
