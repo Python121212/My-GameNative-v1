@@ -15,7 +15,8 @@ static bool pixel_ok(const unsigned char *p) { return p[2] > 230 && p[1] < 20 &&
 static HWND make_window() {
     WNDCLASSA wc = {}; wc.lpfnWndProc = DefWindowProcA; wc.hInstance = GetModuleHandleA(nullptr); wc.lpszClassName = "GNBench";
     RegisterClassA(&wc);
-    HWND win = CreateWindowA(wc.lpszClassName, "GNBench", WS_OVERLAPPEDWINDOW, 0, 0, W + 32, H + 64, nullptr, nullptr, wc.hInstance, nullptr);
+    RECT rect = {0, 0, W, H}; AdjustWindowRect(&rect, WS_OVERLAPPEDWINDOW, FALSE);
+    HWND win = CreateWindowA(wc.lpszClassName, "GNBench", WS_OVERLAPPEDWINDOW, 0, 0, rect.right-rect.left, rect.bottom-rect.top, nullptr, nullptr, wc.hInstance, nullptr);
     if (win) { ShowWindow(win, SW_SHOW); UpdateWindow(win); }
     return win;
 }
@@ -50,6 +51,7 @@ static int run9(HWND hwnd) {
 }
 static int run11(HWND hwnd) {
     DXGI_SWAP_CHAIN_DESC sd{}; sd.BufferDesc.Width=W; sd.BufferDesc.Height=H; sd.BufferDesc.Format=DXGI_FORMAT_B8G8R8A8_UNORM;
+    sd.BufferDesc.RefreshRate.Numerator=60; sd.BufferDesc.RefreshRate.Denominator=1;
     sd.SampleDesc.Count=1; sd.BufferUsage=DXGI_USAGE_RENDER_TARGET_OUTPUT; sd.BufferCount=1; sd.OutputWindow=hwnd; sd.Windowed=TRUE; sd.SwapEffect=DXGI_SWAP_EFFECT_DISCARD;
     ID3D11Device *dev=nullptr; ID3D11DeviceContext *ctx=nullptr; IDXGISwapChain *swap=nullptr; D3D_FEATURE_LEVEL fl{};
     CHECK(D3D11CreateDeviceAndSwapChain(nullptr,D3D_DRIVER_TYPE_HARDWARE,nullptr,0,nullptr,0,D3D11_SDK_VERSION,&sd,&swap,&dev,&fl,&ctx));
