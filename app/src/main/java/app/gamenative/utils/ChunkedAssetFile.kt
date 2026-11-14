@@ -78,13 +78,26 @@ class ChunkedAssetFile private constructor(private val file: RandomAccessFile) :
         return result
     }
 
-    @Synchronized override fun close() { cache.clear(); file.close() }
+    /** メモリ不足時に再取得可能な展開済みブロックのみを捨てる。 */
+    @Synchronized fun trimCache() { cache.clear() }
+
+    override fun close() {
+        synchronized(this) { cache.clear(); file.close() }
+        synchronized(readers) { readers.remove(this) }
+    }
 
     companion object {
         private const val MAGIC = 0x474e4348554e4b31L // GNCHUNK1
         const val BLOCK_SIZE = 256 * 1024
         const val MAX_READ = 4 * 1024 * 1024
         const val MAX_SIZE = 256L * 1024 * 1024 * 1024
+        private val readers = java.util.WeakHashMap<ChunkedAssetFile, Boolean>()
+
+        /** 稼働中の読み取り側のキャッシュだけを解放。swap/ZRAMは変更しない。 */
+        fun trimOpenCaches() {
+            val snapshot = synchronized(readers) { readers.keys.toList() }
+            snapshot.forEach { it.trimCache() }
+        }
 
         /** 入力は変更しない。出力は新規ファイルのみ、失敗時はこの呼び出しで作った出力だけ消す。 */
         fun create(source: File, target: File) {
@@ -127,7 +140,11 @@ class ChunkedAssetFile private constructor(private val file: RandomAccessFile) :
 
         fun open(source: File): ChunkedAssetFile {
             val file = RandomAccessFile(source, "r")
-            try { return ChunkedAssetFile(file) } catch (e: Exception) { file.close(); throw e }
+            try {
+                val reader = ChunkedAssetFile(file)
+                synchronized(readers) { readers[reader] = true }
+                return reader
+            } catch (e: Exception) { file.close(); throw e }
         }
     }
 }
