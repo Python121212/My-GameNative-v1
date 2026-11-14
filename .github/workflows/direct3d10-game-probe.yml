@@ -1,0 +1,46 @@
+name: 無料 Direct3D 10 ゲームの取得確認
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - '.github/workflows/direct3d10-game-probe.yml'
+permissions:
+  contents: read
+jobs:
+  prepare:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: SteamCMD と 32-bit ランタイムの準備
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y lib32gcc-s1 libc6-i386 curl file
+          mkdir -p "$RUNNER_TEMP/steamcmd" "$RUNNER_TEMP/game"
+          curl --fail --location --retry 3 https://steamcdn-a.akamaihd.net/client/installer/steamcmd_linux.tar.gz -o "$RUNNER_TEMP/steamcmd.tar.gz"
+          tar -xzf "$RUNNER_TEMP/steamcmd.tar.gz" -C "$RUNNER_TEMP/steamcmd"
+      - name: 正規無料ゲームの匿名取得を確認
+        run: |
+          set -o pipefail
+          cd "$RUNNER_TEMP/steamcmd"
+          set +e
+          timeout 600 ./steamcmd.sh +force_install_dir "$RUNNER_TEMP/game" +login anonymous +app_update 995990 validate +quit > "$RUNNER_TEMP/download.log" 2>&1
+          status=$?
+          set -e
+          tail -100 "$RUNNER_TEMP/download.log"
+          details=$(tail -n 25 "$RUNNER_TEMP/download.log" | sed 's/%/%25/g' | awk '{printf "%s%%0A", $0}')
+          if ((status != 0)) || ! grep -q 'Success! App.*995990.*fully installed' "$RUNNER_TEMP/download.log"; then
+            echo "::error::匿名取得に失敗しました (exit=$status)%0A$details"
+            exit 1
+          fi
+          find "$RUNNER_TEMP/game" -iname '*.exe' -print | tee "$RUNNER_TEMP/executables.txt"
+          while IFS= read -r file; do file "$file"; sha256sum "$file"; done < "$RUNNER_TEMP/executables.txt"
+          test -s "$RUNNER_TEMP/executables.txt"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: direct3d10-game-probe
+          path: |
+            ${{ runner.temp }}/download.log
+            ${{ runner.temp }}/executables.txt
+          if-no-files-found: ignore
+          retention-days: 14
