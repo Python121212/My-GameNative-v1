@@ -8,7 +8,7 @@
 
 namespace gn::d3d9 {
 // Vulkan のオフスクリーン転送基盤。D3D9 ABI、描画、表示はまだ実装していない。
-// 単一スレッド専用。例外が発生したインスタンスは破棄して作り直す。
+// 単一スレッド専用。Vulkan エラー時はインスタンスを破棄して作り直す。
 class UploadContext {
 public:
     using TextureId = std::uint32_t;
