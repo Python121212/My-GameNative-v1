@@ -3,12 +3,17 @@ name: ARM 変換エミュレーター描画確認
 on:
   workflow_call:
   workflow_dispatch:
+    inputs:
+      publish_release:
+        description: '試験をすべて通過した同一 APK を debug プレリリースとして公開'
+        type: boolean
+        default: false
   push:
   pull_request:
     branches: [main]
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   emulator:
@@ -94,3 +99,44 @@ jobs:
             emulator-results/*.png
           if-no-files-found: ignore
           retention-days: 14
+      - name: テスト済み APK を保存
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.publish_release }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: tested-modern-debug-apk
+          path: app/build/outputs/apk/modern/debug/*.apk
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 14
+      - name: テスト済み APK を試験版としてリリース
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.publish_release }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          apks=(app/build/outputs/apk/modern/debug/*.apk)
+          if (( ${#apks[@]} != 1 )); then
+            echo '::error::公開する APK を一つに特定できません。'
+            exit 1
+          fi
+          sha256sum --check emulator-results/tested-apk-sha256.txt
+          hash=$(sha256sum "${apks[0]}" | cut -d ' ' -f 1)
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose --print-certs "${apks[0]}" | tee emulator-results/signature.txt
+          {
+            echo '# GameNative 試験版（modern debug）'
+            echo
+            echo 'Android 10 以降・arm64 向けの開発用 debug 署名 APK です。製品版ではありません。'
+            echo "コミット: ${GITHUB_SHA}"
+            echo "APK SHA-256: ${hash}"
+            echo "試験: https://github.com/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+            echo
+            echo '同じ APK で Android 35 x86_64 エミュレーターの ARM 変換機能を使い、ARM ライブラリ・基本描画のテスト、起動、メイン画面の前面表示、60秒間のプロセス生存を確認しました。'
+            echo 'Pixel 9a 実機、ゲームの起動・描画、長時間動作、FPS、温度は未確認です。'
+            echo 'アプリに統合済みの実験的変更を含みます。未接続の独自 DirectX 試作、未採用の DXVK パッチ、ホスト用観測ツールは APK の機能ではありません。'
+            echo '署名が既存 APK と異なる場合、上書きインストールできません。ゲームデータ保護のため、アンインストールやデータ消去はしないでください。'
+          } > emulator-results/release-notes.txt
+          gh release create "debug-${GITHUB_RUN_ID}" "${apks[0]}" \
+            --target "$GITHUB_SHA" --prerelease \
+            --title "GameNative modern debug 試験版 (${GITHUB_RUN_ID})" \
+            --notes-file emulator-results/release-notes.txt

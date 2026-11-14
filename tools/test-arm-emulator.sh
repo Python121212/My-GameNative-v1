@@ -25,6 +25,8 @@ fi
     echo "変換ブリッジ: $(adb shell getprop ro.dalvik.vm.native.bridge | tr -d '\r')"
     echo "Android: $(adb shell getprop ro.build.version.release | tr -d '\r')"
 } | tee emulator-results/device.txt
+# 後から公開する APK が、このテストでインストールしたものと一致することを確認する。
+sha256sum "${apps[0]}" | tee emulator-results/tested-apk-sha256.txt
 adb install -r "${apps[0]}"
 adb install -r "${tests[0]}"
 adb shell dumpsys package app.gamenative | tr -d '\r' > emulator-results/package.txt
@@ -69,11 +71,11 @@ if [[ -z "$initial_pid" ]]; then
     echo 'アプリのプロセスが起動していません。' >&2
     exit 1
 fi
-for _ in {1..10}; do
+for _ in {1..60}; do
     sleep 1
     pid=$(adb shell pidof app.gamenative 2>/dev/null | tr -d '\r' || true)
     if [[ "$pid" != "$initial_pid" ]]; then
-        echo '起動後10秒以内にアプリが終了または再起動しました。' >&2
+        echo '起動後60秒以内にアプリが終了または再起動しました。' >&2
         exit 1
     fi
 done
@@ -84,4 +86,5 @@ if ! grep -E 'topResumedActivity|mResumedActivity' emulator-results/activities.t
 fi
 adb exec-out screencap -p > emulator-results/app-start.png
 test -s emulator-results/app-start.png
-printf 'APK が起動し、メイン画面の前面表示と10秒間のプロセス生存を確認しました。\n'
+sha256sum --check emulator-results/tested-apk-sha256.txt
+printf 'APK が起動し、メイン画面の前面表示と60秒間のプロセス生存を確認しました。\n' | tee emulator-results/survival.txt
