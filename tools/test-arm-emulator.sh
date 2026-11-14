@@ -43,6 +43,10 @@ status=${PIPESTATUS[0]}
 set -e
 adb logcat -d -s 'GraphicsDeviceSmokeTest:I' '*:S' > emulator-results/graphics-log.txt || true
 cat emulator-results/graphics-log.txt
+adb logcat -d -s 'CompressedProxyTest:I' '*:S' > emulator-results/compressed-proxy-log.txt || true
+cat emulator-results/compressed-proxy-log.txt
+proxy_detail=$(tail -n 8 emulator-results/compressed-proxy-log.txt | sed -e 's/%/%25/g' | awk '{printf "%s%%0A", $0}')
+echo "::notice::圧縮 FD 子プロセス試験（未対応の場合は未接続）%0A$proxy_detail"
 if (( status != 0 )) || ! grep -Eq '^OK \(9 tests?\)' emulator-results/instrumentation.txt; then
     details=$(tail -n 60 emulator-results/instrumentation.txt | sed -e 's/%/%25/g' | awk '{printf "%s%%0A", $0}')
     echo "::error::テストに失敗しました。%0A$details"
