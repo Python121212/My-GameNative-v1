@@ -1,0 +1,25 @@
+name: 圧縮ファイル形式の合成データ検査
+on:
+  push:
+    paths:
+      - 'tools/tests/test-compressed-filesystems.sh'
+      - '.github/workflows/compressed-filesystem-probe.yml'
+  pull_request:
+    paths:
+      - 'tools/tests/test-compressed-filesystems.sh'
+      - '.github/workflows/compressed-filesystem-probe.yml'
+permissions:
+  contents: read
+jobs:
+  synthetic:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+      - name: 必要なツールを準備
+        run: sudo apt-get update && sudo apt-get install -y erofs-utils squashfs-tools
+      - name: Linux の合成データ検査（Android のマウント試験ではない）
+        run: |
+          set -o pipefail
+          bash tools/tests/test-compressed-filesystems.sh | tee "$RUNNER_TEMP/result.txt"
+          while IFS= read -r line; do echo "::notice::$line"; done < "$RUNNER_TEMP/result.txt"

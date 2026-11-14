@@ -946,6 +946,11 @@
     <string name="force_dlc_description">Only enable if DLCs are not detected or saves with DLC are not working</string>
     <string name="local_saves_only">Local saves only</string>
     <string name="local_saves_only_description">Disable cloud save sync for this game and keep saves on device only</string>
+    <string name="compression_trial_title">圧縮と部分読み込みの試験</string>
+    <string name="compression_trial_subtitle">自動生成データのみで試験。ゲームは圧縮・変更しません。</string>
+    <string name="compression_trial_busy">試験中…</string>
+    <string name="compression_trial_failed">試験に失敗しました。空き容量などを確認してください。</string>
+    <string name="compression_trial_close">閉じる</string>
     <string name="diagnostic_logging_title">ゲーム記録ログ</string>
     <string name="diagnostic_logging_subtitle">次回ゲーム画面から記録。初期設定はオフ。20回分で新規記録を停止します。</string>
     <string name="diagnostic_export_title">最新の記録ログを保存</string>

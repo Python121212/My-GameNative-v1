@@ -40,6 +40,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.launch
 import app.gamenative.utils.DiagnosticLog
+import app.gamenative.utils.CompressionSelfTest
 import java.io.File
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.json.Json
@@ -183,6 +184,16 @@ fun SettingsGroupDebug() {
     }
 
     val diagnosticScope = rememberCoroutineScope()
+    var compressionBusy by remember { mutableStateOf(false) }
+    var compressionResult by remember { mutableStateOf<String?>(null) }
+    if (compressionResult != null) {
+        AlertDialog(
+            onDismissRequest = { compressionResult = null },
+            title = { Text(stringResource(R.string.compression_trial_title)) },
+            text = { Text(compressionResult.orEmpty()) },
+            confirmButton = { TextButton(onClick = { compressionResult = null }) { Text(stringResource(R.string.compression_trial_close)) } },
+        )
+    }
     var confirmDeleteDiagnostics by remember { mutableStateOf(false) }
     if (confirmDeleteDiagnostics) {
         AlertDialog(
@@ -212,6 +223,21 @@ fun SettingsGroupDebug() {
     }
 
     SettingsGroup() {
+        SettingsMenuLink(
+            colors = settingsTileColors(),
+            title = { Text(stringResource(R.string.compression_trial_title)) },
+            subtitle = { Text(stringResource(if (compressionBusy) R.string.compression_trial_busy else R.string.compression_trial_subtitle)) },
+            onClick = {
+                if (!compressionBusy && !isPreview) {
+                    compressionBusy = true
+                    diagnosticScope.launch {
+                        val result = withContext(Dispatchers.IO) { runCatching { CompressionSelfTest.run(context) }.getOrNull() }
+                        compressionResult = result ?: context.getString(R.string.compression_trial_failed)
+                        compressionBusy = false
+                    }
+                }
+            },
+        )
         SettingsSwitch(
             colors = settingsTileColorsAlt(),
             state = diagnosticEnabled,
