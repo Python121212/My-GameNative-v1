@@ -4,8 +4,10 @@ set -euo pipefail
 [[ $# == 2 && ! -e $1 && -f $2 ]] || { echo '使い方: run-linux-software.sh <未使用出力ディレクトリ> <DXVK tar.gz>' >&2; exit 2; }
 out=$1; package=$(realpath "$2"); mkdir -p "$out"; out=$(realpath "$out")
 export LIBGL_ALWAYS_SOFTWARE=1 GALLIUM_DRIVER=llvmpipe WINEDEBUG=-all
-export VK_ICD_FILENAMES=/usr/share/vulkan/icd.d/lvp_icd.x86_64.json
-[[ -f $VK_ICD_FILENAMES ]] || { echo 'lavapipe ICD がありません' >&2; exit 1; }
+shopt -s nullglob
+icds=(/usr/share/vulkan/icd.d/lvp_icd*x86_64*.json /usr/share/vulkan/icd.d/lvp_icd.json)
+(( ${#icds[@]} == 1 )) || { echo "lavapipe ICD を一つに特定できません: ${icds[*]}" >&2; ls /usr/share/vulkan/icd.d >&2; exit 1; }
+export VK_ICD_FILENAMES="${icds[0]}"
 mkdir "$out/build" "$out/wined3d" "$out/dxvk" "$out/dxvk-package"
 tar -xzf "$package" -C "$out/dxvk-package"
 dxvk="$out/dxvk-package/dxvk-2.6.1/x64"
