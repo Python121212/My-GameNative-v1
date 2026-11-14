@@ -1,0 +1,117 @@
+name: Android FEXCore パックと連携部分の検査
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - '.github/workflows/android-fex-inspection.yml'
+      - 'tools/translation-benchmark/inspect-fex-packs.py'
+      - 'tools/translation-benchmark/test-android-fex-gate.sh'
+      - 'app/src/test/java/app/gamenative/utils/FexCodeMapsTest.kt'
+      - 'app/src/androidTest/java/app/gamenative/FexCoreIntegrationSmokeTest.kt'
+  pull_request:
+    paths:
+      - '.github/workflows/android-fex-inspection.yml'
+      - 'tools/translation-benchmark/inspect-fex-packs.py'
+      - 'tools/translation-benchmark/test-android-fex-gate.sh'
+      - 'app/src/test/java/app/gamenative/utils/FexCodeMapsTest.kt'
+      - 'app/src/androidTest/java/app/gamenative/FexCoreIntegrationSmokeTest.kt'
+permissions:
+  contents: read
+jobs:
+  pack:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v6
+      - name: 同梱・公式配布パックの静的検査
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y zstd xz-utils
+          mkdir -p "$RUNNER_TEMP/fexpacks"
+          for p in app/src/main/assets/fexcore/*.tzst; do
+            base=$(basename "$p" .tzst)
+            sha256sum "$p" >> "$RUNNER_TEMP/fexpacks/archive-sha256.txt"
+            zstd -dc "$p" > "$RUNNER_TEMP/fexpacks/$base.tar"
+            python3 tools/translation-benchmark/inspect-fex-packs.py "$RUNNER_TEMP/fexpacks/$base.tar" >> "$RUNNER_TEMP/fexpacks/report.txt"
+          done
+          for version in 2610-gn-5 2611-gn-6; do
+            curl -fL --retry 2 --connect-timeout 30 --max-time 300 --max-filesize 536870912 \
+              "https://downloads.gamenative.app/FEXCore-$version.wcp" -o "$RUNNER_TEMP/fexpacks/$version.wcp"
+            python3 tools/translation-benchmark/inspect-fex-packs.py "$RUNNER_TEMP/fexpacks/$version.wcp" >> "$RUNNER_TEMP/fexpacks/report.txt"
+          done
+          echo '::notice::FEXCore パックの静的検査完了。実行テストではありません。'
+      - name: 検査要約
+        if: always()
+        run: |
+          python3 - <<'PY'
+          import os
+          from pathlib import Path
+          root = Path(os.environ['RUNNER_TEMP']) / 'fexpacks'
+          path = root / 'report.txt'
+          if path.exists():
+              for part in path.read_text(errors='replace').split('パック: ')[1:]:
+                  text = 'パック: ' + part.strip()
+                  print('::notice::' + text.replace('%', '%25').replace('\r', '%0D').replace('\n', '%0A'))
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: fexcore-pack-inspection
+          path: ${{ runner.temp }}/fexpacks/*.txt
+          if-no-files-found: ignore
+          retention-days: 14
+  android:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 75
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Android SDK の準備
+        run: |
+          sdkmanager="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          yes | "$sdkmanager" --licenses > /dev/null || true
+          "$sdkmanager" 'platforms;android-36' 'build-tools;35.0.0' 'ndk;27.3.13750724'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: false
+      - name: アプリ・テスト APK と FEX マップ単体検査
+        run: |
+          set -o pipefail
+          touch local.properties
+          ./gradlew :app:assembleModernDebug :app:assembleModernDebugAndroidTest :app:testModernDebugUnitTest \
+            --tests 'app.gamenative.utils.FexCodeMapsTest' --tests 'app.gamenative.utils.FexImagesTest' \
+            --no-daemon --max-workers=2 -Dorg.gradle.jvmargs='-Xmx3g -Dfile.encoding=UTF-8' \
+            -Pkotlin.daemon.jvmargs=-Xmx5g 2>&1 | tee "$RUNNER_TEMP/fex-gradle.log"
+      - name: KVM の確認
+        id: kvm
+        run: |
+          if [ -e /dev/kvm ]; then sudo chmod a+rw /dev/kvm; fi
+          if [ -r /dev/kvm ] && [ -w /dev/kvm ]; then echo 'disable=false' >> "$GITHUB_OUTPUT"; else echo 'disable=true' >> "$GITHUB_OUTPUT"; fi
+      - name: Android エミュレーターで起動と FEX 連携部分を検査
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          profile: pixel_5
+          ram-size: 4096M
+          disk-size: 8G
+          emulator-boot-timeout: 1800
+          disable-linux-hw-accel: ${{ steps.kvm.outputs.disable }}
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -camera-back none -camera-front none
+          script: bash tools/test-arm-emulator.sh && bash tools/translation-benchmark/test-android-fex-gate.sh
+      - name: テスト結果を保存
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-fex-inspection
+          path: |
+            emulator-results/*.txt
+            app/build/test-results/testModernDebugUnitTest/*.xml
+            ${{ runner.temp }}/fex-gradle.log
+          if-no-files-found: ignore
+          retention-days: 14
