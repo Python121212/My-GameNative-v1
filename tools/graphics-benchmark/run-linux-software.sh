@@ -38,6 +38,10 @@ for backend in wined3d dxvk; do
     grep -iE 'd3d9\.dll.*(native|builtin)' "$out/$backend-load.txt" | tail -3 || { echo "$backend の DLL ロード情報を確認できません" >&2; exit 1; }
     if [[ $backend == dxvk ]]; then kind=native; else kind=builtin; fi
     grep -iE "d3d9\\.dll.*$kind" "$out/$backend-load.txt" >/dev/null || { echo "$backend の d3d9 DLL が期待した種類ではありません" >&2; exit 1; }
+    (cd "$out/$backend"; WINEDEBUG=+loaddll timeout 120 wine ./gn-d3d.exe d3d11) > "$out/$backend-load11.txt" 2>&1 || { tail -n 30 "$out/$backend-load11.txt"; exit 1; }
+    for dll in d3d11 dxgi; do
+        grep -iE "$dll\.dll.*$kind" "$out/$backend-load11.txt" | tail -1 || { echo "$backend の $dll DLL が期待した種類ではありません" >&2; exit 1; }
+    done
     timeout 30 wineserver -w
  done
 printf 'api,round,backend,seconds,fps\n' > "$out/results.csv"

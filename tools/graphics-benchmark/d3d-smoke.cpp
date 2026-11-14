@@ -57,7 +57,7 @@ static int run11(HWND hwnd) {
     ID3D11RenderTargetView *rt=nullptr; CHECK(dev->CreateRenderTargetView(back,nullptr,&rt));
     D3D11_TEXTURE2D_DESC desc{}; back->GetDesc(&desc); desc.Usage=D3D11_USAGE_STAGING; desc.BindFlags=0; desc.CPUAccessFlags=D3D11_CPU_ACCESS_READ; desc.MiscFlags=0;
     ID3D11Texture2D *readback=nullptr; CHECK(dev->CreateTexture2D(&desc,nullptr,&readback));
-    const char *shader="struct O { float4 p:SV_Position; }; O vs(uint i:SV_VertexID) { O o; float2 p[3]={float2(-1,1),float2(1,1),float2(0,-1)}; o.p=float4(p[i],0,1); return o; } float4 ps():SV_Target { return float4(1,0,0,1); }";
+    const char *shader="float4 vs(float4 p:POSITION):SV_Position { return p; } float4 ps():SV_Target { return float4(1,0,0,1); }";
     ID3DBlob *vsb=nullptr,*psb=nullptr,*errors=nullptr;
     HRESULT hr=D3DCompile(shader,strlen(shader),nullptr,nullptr,nullptr,"vs","vs_4_0",0,0,&vsb,&errors);
     if (FAILED(hr)) { if(errors) std::fprintf(stderr,"shader: %s\n",(char*)errors->GetBufferPointer()); return 1; } if(errors) { errors->Release(); errors=nullptr; }
@@ -66,6 +66,12 @@ static int run11(HWND hwnd) {
     ID3D11VertexShader *vs=nullptr; ID3D11PixelShader *ps=nullptr;
     CHECK(dev->CreateVertexShader(vsb->GetBufferPointer(),vsb->GetBufferSize(),nullptr,&vs));
     CHECK(dev->CreatePixelShader(psb->GetBufferPointer(),psb->GetBufferSize(),nullptr,&ps));
+    D3D11_INPUT_ELEMENT_DESC element={"POSITION",0,DXGI_FORMAT_R32G32B32A32_FLOAT,0,0,D3D11_INPUT_PER_VERTEX_DATA,0};
+    ID3D11InputLayout *layout=nullptr; CHECK(dev->CreateInputLayout(&element,1,vsb->GetBufferPointer(),vsb->GetBufferSize(),&layout));
+    const float vertices[12]={-1,1,0,1, 1,1,0,1, 0,-1,0,1};
+    D3D11_BUFFER_DESC bd{}; bd.ByteWidth=sizeof(vertices); bd.Usage=D3D11_USAGE_IMMUTABLE; bd.BindFlags=D3D11_BIND_VERTEX_BUFFER;
+    D3D11_SUBRESOURCE_DATA data{}; data.pSysMem=vertices; ID3D11Buffer *vb=nullptr; CHECK(dev->CreateBuffer(&bd,&data,&vb));
+    UINT stride=4*sizeof(float),offset=0; ctx->IASetInputLayout(layout); ctx->IASetVertexBuffers(0,1,&vb,&stride,&offset);
     D3D11_VIEWPORT vp{}; vp.Width=float(W); vp.Height=float(H); vp.MaxDepth=1.0f;
     ctx->RSSetViewports(1,&vp); ctx->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
     ctx->VSSetShader(vs,nullptr,0); ctx->PSSetShader(ps,nullptr,0);
@@ -82,6 +88,6 @@ static int run11(HWND hwnd) {
     }
     QueryPerformanceCounter(&end); double sec=seconds(start,end);
     std::printf("RESULT api=d3d11 frames=%u seconds=%.6f fps=%.3f pixel=ok feature=0x%x\n",FRAMES,sec,FRAMES/sec,unsigned(fl));
-    ps->Release(); vs->Release(); psb->Release(); vsb->Release(); readback->Release(); rt->Release(); back->Release(); swap->Release(); ctx->Release(); dev->Release(); return 0;
+    vb->Release(); layout->Release(); ps->Release(); vs->Release(); psb->Release(); vsb->Release(); readback->Release(); rt->Release(); back->Release(); swap->Release(); ctx->Release(); dev->Release(); return 0;
 }
 int main(int argc,char **argv) { if(argc!=2 || (strcmp(argv[1],"d3d9") && strcmp(argv[1],"d3d11"))) return 2; HWND hwnd=make_window(); if(!hwnd) return 1; int ret=strcmp(argv[1],"d3d9") ? run11(hwnd):run9(hwnd); DestroyWindow(hwnd); return ret; }
