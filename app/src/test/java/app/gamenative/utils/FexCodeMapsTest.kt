@@ -62,6 +62,38 @@ class FexCodeMapsTest {
     }
 
     @Test
+    fun `reads a minimal 32-bit map and retains its unsigned block offset`() {
+        val data = ByteBuffer.allocate(32).order(ByteOrder.LITTLE_ENDIAN)
+            .putLong(-1L).putInt(-18).putLong(0x1122334455667788L)
+            .putLong(0x1122334455667788L).putInt(-2).array()
+        val full = tmp.newFile("game32.exe-1122334455667788.1.bin").apply { writeBytes(data) }
+        val info = FexCodeMaps.readInfo(full)!!
+        assertEquals(32, info.bitness)
+        assertEquals("1122334455667788", info.mainFileId)
+        assertEquals(1, info.entries)
+        val delta = tmp.newFile("game32.delta")
+        assertEquals(1, FexCodeMaps.writeDelta(full, delta, emptySet()))
+        assertTrue(data.contentEquals(delta.readBytes()))
+    }
+
+    @Test
+    fun `rejects an unknown reserved record and a missing library terminator`() {
+        val unknown = ByteBuffer.allocate(24).order(ByteOrder.LITTLE_ENDIAN)
+            .putLong(-1L).putInt(123).putLong(1L).putInt(3).array()
+        val missingNul = ByteBuffer.allocate(24).order(ByteOrder.LITTLE_ENDIAN)
+            .putLong(-1L).putInt(-1).putLong(1L).putInt(0x41414141).array()
+        assertNull(FexCodeMaps.readInfo(tmp.newFile("unknown.bin").apply { writeBytes(unknown) }))
+        assertNull(FexCodeMaps.readInfo(tmp.newFile("bad-library.bin").apply { writeBytes(missingNul) }))
+    }
+
+    @Test
+    fun `a directory named as compiler is not a compiler file`() {
+        val pack = tmp.newFolder("fake-pack")
+        assertTrue(File(pack, "system32/FEXOfflineCompiler64.exe").mkdirs())
+        assertFalse(FexCodeMaps.packSupportsCodeCaches(pack))
+    }
+
+    @Test
     fun `a delta keeps the records and only the unsent blocks`() {
         val full = fixture()
         val first = tmp.newFile("first.exe-74ec33596a84c560.4.bin")
