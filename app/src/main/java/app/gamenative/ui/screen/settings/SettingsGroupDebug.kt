@@ -45,6 +45,9 @@ import app.gamenative.utils.DiagnosticLog
 import app.gamenative.utils.CompressionSelfTest
 import app.gamenative.utils.MemoryStatus
 import app.gamenative.utils.BenchmarkDownload
+import app.gamenative.utils.StandaloneBenchmarkImporter
+import app.gamenative.PluviaApp
+import app.gamenative.events.AndroidEvent
 import java.io.File
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.json.Json
@@ -188,6 +191,38 @@ fun SettingsGroupDebug() {
     }
 
     val diagnosticScope = rememberCoroutineScope()
+    var showBenchmarkPickerConfirmation by remember { mutableStateOf(false) }
+    var benchmarkImportBusy by remember { mutableStateOf(false) }
+    val benchmarkPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null && !benchmarkImportBusy) {
+            benchmarkImportBusy = true
+            diagnosticScope.launch {
+                try {
+                    val appId = StandaloneBenchmarkImporter.importAndRegister(context, uri)
+                    SnackbarManager.show(context.getString(R.string.benchmark_launch_requested))
+                    PluviaApp.events.emit(AndroidEvent.ExternalGameLaunch(appId))
+                } catch (e: kotlinx.coroutines.CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    SnackbarManager.show(context.getString(R.string.benchmark_import_failed, e.localizedMessage ?: ""))
+                } finally {
+                    benchmarkImportBusy = false
+                }
+            }
+        }
+    }
+    if (showBenchmarkPickerConfirmation) {
+        AlertDialog(
+            onDismissRequest = { showBenchmarkPickerConfirmation = false },
+            title = { Text(stringResource(R.string.benchmark_select_title)) },
+            text = { Text(stringResource(R.string.benchmark_select_detail), modifier = Modifier.verticalScroll(rememberScrollState())) },
+            confirmButton = { TextButton(onClick = {
+                showBenchmarkPickerConfirmation = false
+                if (!isPreview) benchmarkPicker.launch(arrayOf("*/*"))
+            }) { Text(stringResource(R.string.benchmark_select_action)) } },
+            dismissButton = { TextButton(onClick = { showBenchmarkPickerConfirmation = false }) { Text(stringResource(R.string.diagnostic_cancel)) } },
+        )
+    }
     var benchmarkDownload by remember { mutableStateOf<BenchmarkDownload?>(null) }
     benchmarkDownload?.let { benchmark ->
         val cpu = benchmark == BenchmarkDownload.CPU
@@ -256,6 +291,12 @@ fun SettingsGroupDebug() {
     }
 
     SettingsGroup() {
+        SettingsMenuLink(
+            colors = settingsTileColors(),
+            title = { Text(stringResource(R.string.benchmark_select_title)) },
+            subtitle = { Text(stringResource(if (benchmarkImportBusy) R.string.benchmark_select_busy else R.string.benchmark_select_subtitle)) },
+            onClick = { if (!benchmarkImportBusy) showBenchmarkPickerConfirmation = true },
+        )
         SettingsMenuLink(
             colors = settingsTileColors(),
             title = { Text(stringResource(R.string.benchmark_cpu_title)) },
