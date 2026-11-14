@@ -1,0 +1,32 @@
+diff --git a/src/d3d9/d3d9_swapchain.cpp b/src/d3d9/d3d9_swapchain.cpp
+index f58b2e6..ed8f11f 100644
+--- a/src/d3d9/d3d9_swapchain.cpp
++++ b/src/d3d9/d3d9_swapchain.cpp
+@@ -1348,7 +1348,13 @@ namespace dxvk {
+   void D3D9SwapChainEx::UpdatePresentParameters() {
+     if (m_wctx) {
+       m_wctx->presenter->setSurfaceExtent(m_swapchainExtent);
+-      m_wctx->presenter->setSurfaceFormat(GetSurfaceFormat());
++      const VkSurfaceFormatKHR format = GetSurfaceFormat();
++      if (!m_wctx->hasFormat || m_wctx->lastFormat.format != format.format
++       || m_wctx->lastFormat.colorSpace != format.colorSpace) {
++        m_wctx->presenter->setSurfaceFormat(format);
++        m_wctx->lastFormat = format;
++        m_wctx->hasFormat = true;
++      }
+     }
+   }
+ 
+diff --git a/src/d3d9/d3d9_swapchain.h b/src/d3d9/d3d9_swapchain.h
+index c2248da..b997034 100644
+--- a/src/d3d9/d3d9_swapchain.h
++++ b/src/d3d9/d3d9_swapchain.h
+@@ -57,6 +57,8 @@ namespace dxvk {
+     Rc<sync::Fence>                frameLatencySignal;
+ 
+     uint32_t                       deviceResetCounter = 0u;
++    VkSurfaceFormatKHR             lastFormat = { };
++    bool                           hasFormat = false;
+   };
+ 
+   using D3D9SwapChainExBase = D3D9DeviceChild<IDirect3DSwapChain9Ex>;
