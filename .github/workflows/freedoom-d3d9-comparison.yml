@@ -57,7 +57,9 @@ jobs:
           image.thumbnail((200, 150))
           data = io.BytesIO()
           image.save(data, format='JPEG', quality=55, optimize=True)
-          print('::notice::ゲーム画面縮小画像 base64=' + base64.b64encode(data.getvalue()).decode())
+          encoded = base64.b64encode(data.getvalue()).decode()
+          for offset in range(0, len(encoded), 3000):
+              print(f'::notice::ゲーム画面縮小画像 {offset:06d}=' + encoded[offset:offset+3000])
           PYTHUMB
           fi
           if ((status != 0)); then
