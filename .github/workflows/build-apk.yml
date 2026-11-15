@@ -1,0 +1,237 @@
+name: Build APK
+
+# GameNative Android APK を GitHub Actions で生成するワークフロー。
+#
+# 試験版 (test):  Android デバッグ鍵で署名 (動作確認・内部配布用)
+# 安定版 (stable): リリースキーストアで署名 (ストア/公開配布用)
+#
+# トリガー:
+#   - push (main / arena/*): 試験版のみ自動生成
+#   - workflow_dispatch: variant / release_type / create_release を手動選択
+#
+# 必要な Secrets (安定版のみ):
+#   KEYSTORE, KEYSTORE_KEY_ALIAS, KEYSTORE_KEY_PASSWORD, KEYSTORE_STORE_PASSWORD
+#   (base64 エンコード済みのリリースキーストア)
+
+on:
+  push:
+    branches: [ "main", "arena/*" ]
+  workflow_dispatch:
+    inputs:
+      variant:
+        description: "Android flavor (build variant)"
+        type: choice
+        options:
+          - legacy
+          - legacyXr
+          - modern
+          - modernXr
+        default: modern
+        required: true
+      release_type:
+        description: "Release type"
+        type: choice
+        options:
+          - test
+          - stable
+        default: test
+        required: true
+      create_release:
+        description: "Create GitHub Release (stable only)"
+        type: boolean
+        default: false
+
+concurrency:
+  group: apk-build-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    # push 時は試験版のみ。安定版は secrets がある場合または workflow_dispatch のみ実行。
+    if: >
+      github.event_name == 'workflow_dispatch' ||
+      (github.ref == 'refs/heads/main' && github.event.inputs.release_type != 'stable')
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Add swap (CI memory guard)
+        run: |
+          sudo fallocate -l 8G /mnt/swapfile.ci
+          sudo chmod 600 /mnt/swapfile.ci
+          sudo mkswap /mnt/swapfile.ci
+          sudo swapon /mnt/swapfile.ci
+          free -m
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: gradle
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+        with:
+          api-level: 36
+          build-tools: 35.0.0
+          ndk: 27.3.13750724
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: false
+
+      - name: Determine build parameters
+        id: params
+        run: |
+          VARIANT="${{ github.event.inputs.variant || 'modern' }}"
+          RELEASE_TYPE="${{ github.event.inputs.release_type || 'test' }}"
+          # Gradle タスク名用に先頭を大文字 (modern -> Modern, legacyXr -> LegacyXr)
+          VARIANT_PC="$(echo "${VARIANT:0:1}" | tr '[:lower:]' '[:upper:]')${VARIANT:1}"
+          echo "variant=$VARIANT" >> "$GITHUB_OUTPUT"
+          echo "variant_pc=$VARIANT_PC" >> "$GITHUB_OUTPUT"
+          echo "release_type=$RELEASE_TYPE" >> "$GITHUB_OUTPUT"
+
+      - name: Configure local.properties (API credentials)
+        run: |
+          cat <<EOF > local.properties
+          POSTHOG_API_KEY=${{ secrets.POSTHOG_API_KEY }}
+          POSTHOG_HOST=${{ secrets.POSTHOG_HOST }}
+          STEAMGRIDDB_API_KEY=${{ secrets.STEAMGRIDDB_API_KEY }}
+          CLOUD_PROJECT_NUMBER=${{ secrets.CLOUD_PROJECT_NUMBER }}
+          EOF
+
+      - name: Configure keystore
+        env:
+          KEYSTORE: ${{ secrets.KEYSTORE }}
+          KEYSTORE_KEY_ALIAS: ${{ secrets.KEYSTORE_KEY_ALIAS }}
+          KEYSTORE_KEY_PASSWORD: ${{ secrets.KEYSTORE_KEY_PASSWORD }}
+          KEYSTORE_STORE_PASSWORD: ${{ secrets.KEYSTORE_STORE_PASSWORD }}
+        run: |
+          RELEASE_TYPE="${{ steps.params.outputs.release_type }}"
+          if [ "$RELEASE_TYPE" = "stable" ]; then
+            if [ -z "$KEYSTORE" ]; then
+              echo '::error::secrets.KEYSTORE is required for stable builds.'
+              exit 1
+            fi
+            mkdir -p app/keystores
+            echo "$KEYSTORE" | base64 --decode > app/keystores/release.keystore
+            cat > app/keystores/keystore.properties <<EOF
+            storeFile=keystores/release.keystore
+            keyAlias=$KEYSTORE_KEY_ALIAS
+            storePassword=$KEYSTORE_STORE_PASSWORD
+            keyPassword=$KEYSTORE_KEY_PASSWORD
+            EOF
+            echo "Configured release keystore for stable signing."
+          else
+            echo "Using Android debug keystore for test signing."
+          fi
+
+      - name: Build APK with Gradle
+        env:
+          VARIANT: ${{ steps.params.outputs.variant }}
+          VARIANT_PC: ${{ steps.params.outputs.variant_pc }}
+          RELEASE_TYPE: ${{ steps.params.outputs.release_type }}
+        run: |
+          if [ "$RELEASE_TYPE" = "stable" ]; then
+            TASK=":app:assemble${VARIANT_PC}Release"
+          else
+            TASK=":app:assemble${VARIANT_PC}Debug"
+          fi
+          echo "Running Gradle task: $TASK"
+          ./gradlew "$TASK" --no-daemon --max-workers=2 \
+            -Dorg.gradle.jvmargs="-Xmx4g -Dfile.encoding=UTF-8" \
+            -Pkotlin.daemon.jvmargs=-Xmx5g
+
+      - name: Sign APK with apksigner
+        id: sign
+        env:
+          VARIANT: ${{ steps.params.outputs.variant }}
+          VARIANT_PC: ${{ steps.params.outputs.variant_pc }}
+          RELEASE_TYPE: ${{ steps.params.outputs.release_type }}
+          KEYSTORE_KEY_ALIAS: ${{ secrets.KEYSTORE_KEY_ALIAS }}
+          KEYSTORE_KEY_PASSWORD: ${{ secrets.KEYSTORE_KEY_PASSWORD }}
+          KEYSTORE_STORE_PASSWORD: ${{ secrets.KEYSTORE_STORE_PASSWORD }}
+        run: |
+          if [ "$RELEASE_TYPE" = "stable" ]; then
+            KEYSTORE="app/keystores/release.keystore"
+            ALIAS="$KEYSTORE_KEY_ALIAS"
+            STORE_PASS="$KEYSTORE_STORE_PASSWORD"
+            KEY_PASS="$KEYSTORE_KEY_PASSWORD"
+          else
+            KEYSTORE="$HOME/.android/debug.keystore"
+            ALIAS="androiddebugkey"
+            STORE_PASS="android"
+            KEY_PASS="android"
+            if [ ! -f "$KEYSTORE" ]; then
+              keytool -genkeypair -v -keystore "$KEYSTORE" -storepass android -keypass android \
+                -alias androiddebugkey -keyalg RSA -keysize 2048 -validity 10000 \
+                -dname "CN=Android Debug,O=Android,C=US" >/dev/null 2>&1
+            fi
+          fi
+
+          APK="app/build/outputs/apk/${VARIANT}/${RELEASE_TYPE}/app-${VARIANT}-${RELEASE_TYPE}.apk"
+          if [ ! -f "$APK" ]; then
+            echo "::error::APK not found: $APK"
+            exit 1
+          fi
+
+          OUT="app-${VARIANT}-${RELEASE_TYPE}-signed.apk"
+          BUILD_TOOLS_DIR="$ANDROID_HOME/build-tools/35.0.0"
+          if [ ! -d "$BUILD_TOOLS_DIR" ]; then
+            BUILD_TOOLS_DIR="$ANDROID_SDK_ROOT/build-tools/35.0.0"
+          fi
+
+          "$BUILD_TOOLS_DIR/apksigner" sign \
+            --ks "$KEYSTORE" \
+            --ks-key-alias "$ALIAS" \
+            --ks-pass pass:"$STORE_PASS" \
+            --key-pass pass:"$KEY_PASS" \
+            --out "$OUT" \
+            "$APK"
+
+          echo "signed_apk=$OUT" >> "$GITHUB_OUTPUT"
+
+      - name: Verify signature
+        run: |
+          SIGNED="${{ steps.sign.outputs.signed_apk }}"
+          BUILD_TOOLS_DIR="$ANDROID_HOME/build-tools/35.0.0"
+          if [ ! -d "$BUILD_TOOLS_DIR" ]; then
+            BUILD_TOOLS_DIR="$ANDROID_SDK_ROOT/build-tools/35.0.0"
+          fi
+          "$BUILD_TOOLS_DIR/apksigner" verify --verbose "$SIGNED"
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: gamenative-${{ steps.params.outputs.variant }}-${{ steps.params.outputs.release_type }}-apk
+          path: ${{ steps.sign.outputs.signed_apk }}
+          compression-level: 0
+          retention-days: 14
+
+      - name: Create GitHub Release (stable only)
+        if: ${{ steps.params.outputs.release_type == 'stable' && github.event.inputs.create_release == 'true' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VARIANT: ${{ steps.params.outputs.variant }}
+          RELEASE_TYPE: ${{ steps.params.outputs.release_type }}
+        run: |
+          TAG="apk-${VARIANT}-${RELEASE_TYPE}-${GITHUB_RUN_ID}"
+          TITLE="GameNative ${VARIANT} ${RELEASE_TYPE} (run ${GITHUB_RUN_ID})"
+          NOTES="GameNative ${VARIANT} ${RELEASE_TYPE} build signed via GitHub Actions.
+
+Commit: ${GITHUB_SHA}
+Run: ${GITHUB_RUN_ID}"
+          gh release create "$TAG" "${{ steps.sign.outputs.signed_apk }}" \
+            --target "$GITHUB_SHA" \
+            --title "$TITLE" \
+            --notes "$NOTES" \
+            ${{ steps.params.outputs.release_type == 'stable' && '--latest' || '--prerelease' }}
