@@ -53,10 +53,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 60
 
-    # push 時は試験版のみ。安定版は secrets がある場合または workflow_dispatch のみ実行。
+    # push 時は試験版のみ。安定版は workflow_dispatch のみ実行。
     if: >
       github.event_name == 'workflow_dispatch' ||
-      (github.ref == 'refs/heads/main' && github.event.inputs.release_type != 'stable')
+      (github.ref == 'refs/heads/main' && github.event_name != 'workflow_dispatch')
 
     steps:
       - name: Check out repository
@@ -223,15 +223,22 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           VARIANT: ${{ steps.params.outputs.variant }}
           RELEASE_TYPE: ${{ steps.params.outputs.release_type }}
+          SIGNED_APK: ${{ steps.sign.outputs.signed_apk }}
         run: |
           TAG="apk-${VARIANT}-${RELEASE_TYPE}-${GITHUB_RUN_ID}"
           TITLE="GameNative ${VARIANT} ${RELEASE_TYPE} (run ${GITHUB_RUN_ID})"
+          # リリースフラグをシェル側で決定 (YAML インライン条件を回避)
+          if [ "$RELEASE_TYPE" = "stable" ]; then
+            RELEASE_FLAG="--latest"
+          else
+            RELEASE_FLAG="--prerelease"
+          fi
+          # ノートを改行付きで構築
           NOTES="GameNative ${VARIANT} ${RELEASE_TYPE} build signed via GitHub Actions.
-
 Commit: ${GITHUB_SHA}
 Run: ${GITHUB_RUN_ID}"
-          gh release create "$TAG" "${{ steps.sign.outputs.signed_apk }}" \
+          gh release create "$TAG" "$SIGNED_APK" \
             --target "$GITHUB_SHA" \
             --title "$TITLE" \
             --notes "$NOTES" \
-            ${{ steps.params.outputs.release_type == 'stable' && '--latest' || '--prerelease' }}
+            $RELEASE_FLAG
