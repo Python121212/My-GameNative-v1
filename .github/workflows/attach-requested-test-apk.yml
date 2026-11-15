@@ -1,0 +1,81 @@
+name: 依頼された試験 APK の添付
+
+on:
+  push:
+    branches: ['arena/d61c5757-my-gamenative-v1']
+    paths: ['.github/workflows/attach-requested-test-apk.yml']
+  workflow_dispatch:
+
+permissions:
+  actions: read
+  contents: write
+
+jobs:
+  attach:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      GH_TOKEN: ${{ github.token }}
+      REPO: ${{ github.repository }}
+      RUN_ID: '43661998604'
+      EXPECTED_SHA: '17185459594337e4d6be14031fc0902fef778743'
+      RELEASE_TAG: 'apk-modern-test-43661998604'
+    steps:
+      - name: 依頼されたビルドと試験版リリースを検査
+        run: |
+          set -euo pipefail
+          actual=$(gh api "repos/$REPO/actions/runs/$RUN_ID" --jq '.head_sha')
+          conclusion=$(gh api "repos/$REPO/actions/runs/$RUN_ID" --jq '.conclusion')
+          [ "$actual" = "$EXPECTED_SHA" ] && [ "$conclusion" = success ]
+          gh release view "$RELEASE_TAG" --repo "$REPO" --json isPrerelease,targetCommitish --jq '.isPrerelease and (.targetCommitish == "17185459594337e4d6be14031fc0902fef778743")' | grep -qx true
+          count=$(gh release view "$RELEASE_TAG" --repo "$REPO" --json assets --jq '.assets | length')
+          [ "$count" -eq 0 ] || { echo '::error::リリースに既にアセットがあります。上書きしません。'; exit 1; }
+      - name: 同一成果物を取得し署名と旧試験版を比較
+        run: |
+          set -euo pipefail
+          sdkmanager="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          yes | "$sdkmanager" --licenses >/dev/null || true
+          "$sdkmanager" 'build-tools;35.0.0'
+          mkdir -p new old published
+          gh run download "$RUN_ID" --repo "$REPO" --name gamenative-modern-test-apk --dir new
+          gh release download diagnostics-43574994567 --repo "$REPO" --pattern gamenative-modern-debug.apk --dir old
+          mapfile -d '' apks < <(find new -type f -name '*.apk' -print0)
+          [ "${#apks[@]}" -eq 1 ]
+          signer="$ANDROID_HOME/build-tools/35.0.0/apksigner"
+          "$signer" verify --verbose --print-certs "${apks[0]}" > new-signature.txt
+          "$signer" verify --verbose --print-certs old/gamenative-modern-debug.apk > old-signature.txt
+          new_cert=$(sed -n 's/^Signer #1 certificate SHA-256 digest: //p' new-signature.txt)
+          old_cert=$(sed -n 's/^Signer #1 certificate SHA-256 digest: //p' old-signature.txt)
+          [ -n "$new_cert" ] && [ -n "$old_cert" ]
+          [ "$(grep -c '^Signer #[0-9]* certificate SHA-256 digest:' new-signature.txt)" -eq 1 ]
+          [ "$(grep -c '^Signer #[0-9]* certificate SHA-256 digest:' old-signature.txt)" -eq 1 ]
+          cp "${apks[0]}" published/gamenative-modern-test.apk
+          sha256sum published/gamenative-modern-test.apk | tee published/SHA256SUMS.txt
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging published/gamenative-modern-test.apk | grep '^package:' | tee package.txt
+          if [ "$new_cert" = "$old_cert" ]; then
+            echo '旧 diagnostics 試験版と署名証明書の SHA-256 は一致しました。ただし上書きにはパッケージ名やバージョンなどの条件もあります。' > compatibility.txt
+          else
+            echo '旧 diagnostics 試験版とは署名証明書が異なり、通常そのまま上書きできません。アンインストールやデータ消去をしないでください。' > compatibility.txt
+          fi
+          echo "新 APK の署名証明書 SHA-256: $new_cert" >> compatibility.txt
+          echo "旧 diagnostics 試験版の署名証明書 SHA-256: $old_cert" >> compatibility.txt
+          cat compatibility.txt
+      - name: 既存の試験版リリースへ APK を添付
+        run: |
+          set -euo pipefail
+          gh release upload "$RELEASE_TAG" published/gamenative-modern-test.apk published/SHA256SUMS.txt --repo "$REPO"
+          {
+            echo '# GameNative modern 試験版'
+            echo
+            echo "元ビルド: https://github.com/$REPO/actions/runs/$RUN_ID"
+            echo "コミット: $EXPECTED_SHA"
+            echo '元 Actions の成果物をそのまま添付しました。APK の中身や署名を変更していません。'
+            echo '端末でのゲーム起動・性能、Pixel 9a 実機は未確認です。'
+            echo
+            cat compatibility.txt
+            echo
+            cat package.txt
+            echo
+            cat published/SHA256SUMS.txt
+          } > notes.txt
+          gh release edit "$RELEASE_TAG" --repo "$REPO" --notes-file notes.txt
