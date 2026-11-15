@@ -103,6 +103,7 @@ jobs:
           echo "release_type=$RELEASE_TYPE" >> "$GITHUB_OUTPUT"
 
       - name: Configure local.properties (API credentials)
+        if: ${{ steps.params.outputs.release_type == 'stable' }}
         run: |
           cat <<EOF > local.properties
           POSTHOG_API_KEY=${{ secrets.POSTHOG_API_KEY }}
@@ -110,6 +111,9 @@ jobs:
           STEAMGRIDDB_API_KEY=${{ secrets.STEAMGRIDDB_API_KEY }}
           CLOUD_PROJECT_NUMBER=${{ secrets.CLOUD_PROJECT_NUMBER }}
           EOF
+      - name: Touch empty local.properties (test)
+        if: ${{ steps.params.outputs.release_type != 'stable' }}
+        run: touch local.properties
 
       - name: Configure keystore (stable only)
         if: ${{ steps.params.outputs.release_type == 'stable' }}
