@@ -180,7 +180,13 @@ jobs:
             fi
           fi
 
-          APK="app/build/outputs/apk/${VARIANT}/${RELEASE_TYPE}/app-${VARIANT}-${RELEASE_TYPE}.apk"
+          # Gradle 出力パス: debug -> debug/, release -> release/
+          if [ "$RELEASE_TYPE" = "stable" ]; then
+            BUILD_TYPE="release"
+          else
+            BUILD_TYPE="debug"
+          fi
+          APK="app/build/outputs/apk/${VARIANT}/${BUILD_TYPE}/app-${VARIANT}-${BUILD_TYPE}.apk"
           if [ ! -f "$APK" ]; then
             echo "::error::APK not found: $APK"
             exit 1
