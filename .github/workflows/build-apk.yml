@@ -233,10 +233,8 @@ jobs:
           else
             RELEASE_FLAG="--prerelease"
           fi
-          # ノートを改行付きで構築
-          NOTES="GameNative ${VARIANT} ${RELEASE_TYPE} build signed via GitHub Actions.
-Commit: ${GITHUB_SHA}
-Run: ${GITHUB_RUN_ID}"
+          # ノートを改行付きで構築 (YAML ブロックスカラー内のリテラル改行を回避)
+          NOTES=$(printf 'GameNative %s %s build signed via GitHub Actions.\nCommit: %s\nRun: %s' "$VARIANT" "$RELEASE_TYPE" "${GITHUB_SHA}" "${GITHUB_RUN_ID}")
           gh release create "$TAG" "$SIGNED_APK" \
             --target "$GITHUB_SHA" \
             --title "$TITLE" \
