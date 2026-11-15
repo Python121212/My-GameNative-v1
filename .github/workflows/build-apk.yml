@@ -111,31 +111,27 @@ jobs:
           CLOUD_PROJECT_NUMBER=${{ secrets.CLOUD_PROJECT_NUMBER }}
           EOF
 
-      - name: Configure keystore
+      - name: Configure keystore (stable only)
+        if: ${{ steps.params.outputs.release_type == 'stable' }}
         env:
           KEYSTORE: ${{ secrets.KEYSTORE }}
           KEYSTORE_KEY_ALIAS: ${{ secrets.KEYSTORE_KEY_ALIAS }}
           KEYSTORE_KEY_PASSWORD: ${{ secrets.KEYSTORE_KEY_PASSWORD }}
           KEYSTORE_STORE_PASSWORD: ${{ secrets.KEYSTORE_STORE_PASSWORD }}
         run: |
-          RELEASE_TYPE="${{ steps.params.outputs.release_type }}"
-          if [ "$RELEASE_TYPE" = "stable" ]; then
-            if [ -z "$KEYSTORE" ]; then
-              echo '::error::secrets.KEYSTORE is required for stable builds.'
-              exit 1
-            fi
-            mkdir -p app/keystores
-            echo "$KEYSTORE" | base64 --decode > app/keystores/release.keystore
-            cat > app/keystores/keystore.properties <<EOF
-            storeFile=keystores/release.keystore
-            keyAlias=$KEYSTORE_KEY_ALIAS
-            storePassword=$KEYSTORE_STORE_PASSWORD
-            keyPassword=$KEYSTORE_KEY_PASSWORD
-            EOF
-            echo "Configured release keystore for stable signing."
-          else
-            echo "Using Android debug keystore for test signing."
+          if [ -z "$KEYSTORE" ]; then
+            echo '::error::secrets.KEYSTORE is required for stable builds.'
+            exit 1
           fi
+          mkdir -p app/keystores
+          echo "$KEYSTORE" | base64 --decode > app/keystores/release.keystore
+          cat > app/keystores/keystore.properties <<EOF
+          storeFile=keystores/release.keystore
+          keyAlias=$KEYSTORE_KEY_ALIAS
+          storePassword=$KEYSTORE_STORE_PASSWORD
+          keyPassword=$KEYSTORE_KEY_PASSWORD
+          EOF
+          echo "Configured release keystore for stable signing."
 
       - name: Build APK with Gradle
         env:
